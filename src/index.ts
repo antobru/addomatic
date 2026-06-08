@@ -16,6 +16,7 @@ export {
 export type { LLMJudgeOptions } from './aggregators.js';
 export { mapWithConcurrency } from './concurrency.js';
 export { calculatorTool } from './tools.js';
+export { graphifyQueryTool, graphifyReportTool } from './graphify-tools.js';
 
 // Provider LLM — scegli quello adatto al tuo stack
 export { AnthropicProvider } from './providers/anthropic.js';

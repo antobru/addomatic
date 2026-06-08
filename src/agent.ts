@@ -14,7 +14,7 @@
  * riusare la STESSA istanza Agent per tutti i worker dello swarm lanciati in
  * parallelo, senza che le esecuzioni interferiscano tra loro.
  */
-import type { AgentConfig, AgentResult, AgentTool, TraceStep } from '../types.js';
+import type { AgentConfig, AgentResult, AgentTool, SwarmProgressEvent, TraceStep } from '../types.js';
 import type {
   LLMProvider,
   LLMMessage,
@@ -51,7 +51,11 @@ export class Agent {
    * Non lancia mai: ogni errore viene catturato e riportato in `success/error`,
    * cosi' il fallimento di un agente non fa cadere l'intero swarm.
    */
-  async run(agentId: string, task: string): Promise<AgentResult> {
+  async run(
+    agentId: string,
+    task: string,
+    onProgress?: (event: SwarmProgressEvent) => void,
+  ): Promise<AgentResult> {
     const started = Date.now();
     const trace: TraceStep[] = [];
     let inputTokens = 0;
@@ -71,6 +75,7 @@ export class Agent {
     try {
       while (iterations < this.maxIterations) {
         iterations++;
+        onProgress?.({ type: 'agent_iteration', agentId, iteration: iterations });
         const response = await this.provider.chat({
           model: this.model,
           system: this.systemPrompt,
@@ -86,6 +91,10 @@ export class Agent {
         for (const block of response.content) {
           if (isTextBlock(block) && block.text.trim()) {
             trace.push({ iteration: iterations, type: 'thinking', content: block.text });
+            // In modalità verbose emette il ragionamento prima di una tool call.
+            if (response.stop_reason === 'tool_use') {
+              onProgress?.({ type: 'agent_thinking', agentId, iteration: iterations, text: block.text });
+            }
           }
         }
 
@@ -117,6 +126,7 @@ export class Agent {
         for (const block of response.content) {
           if (!isToolUseBlock(block)) continue;
 
+          onProgress?.({ type: 'agent_tool_call', agentId, iteration: iterations, toolName: block.name, input: block.input as Record<string, unknown> });
           trace.push({
             iteration: iterations,
             type: 'tool_call',
@@ -140,6 +150,7 @@ export class Agent {
             }
           }
 
+          onProgress?.({ type: 'agent_tool_result', agentId, iteration: iterations, toolName: block.name, result: resultText, isError });
           trace.push({
             iteration: iterations,
             type: 'tool_result',

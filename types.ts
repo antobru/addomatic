@@ -105,6 +105,26 @@ export interface Aggregator {
 /* ----------------------------------------------------------------------------
  * CONFIGURAZIONE E RISULTATO DELLO SWARM
  * -------------------------------------------------------------------------- */
+/**
+ * Evento emesso dallo swarm durante l'esecuzione. Usato da `SwarmConfig.onProgress`
+ * per osservare lo stato degli agenti in tempo reale.
+ * Usa `consoleSwarmLogger()` per una implementazione pronta all'uso.
+ *
+ * Eventi per modalità verbose (ragionamento e I/O degli strumenti):
+ *   agent_thinking     — testo di ragionamento prima di una tool call
+ *   agent_tool_result  — output di un tool dopo l'esecuzione
+ */
+export type SwarmProgressEvent =
+  | { type: 'swarm_start'; task: string; size: number; concurrency: number }
+  | { type: 'agent_start'; agentId: string }
+  | { type: 'agent_iteration'; agentId: string; iteration: number }
+  | { type: 'agent_thinking'; agentId: string; iteration: number; text: string }
+  | { type: 'agent_tool_call'; agentId: string; iteration: number; toolName: string; input: Record<string, unknown> }
+  | { type: 'agent_tool_result'; agentId: string; iteration: number; toolName: string; result: string; isError: boolean }
+  | { type: 'agent_done'; agentId: string; success: boolean; durationMs: number; iterations: number; output?: string; error?: string }
+  | { type: 'aggregating'; strategy: string; candidateCount: number }
+  | { type: 'swarm_done'; succeeded: number; total: number; wallClockMs: number };
+
 export interface SwarmConfig {
   /** Numero di agenti worker da lanciare. */
   size: number;
@@ -116,6 +136,12 @@ export interface SwarmConfig {
   concurrency?: number;
   /** Se impostato, lo swarm fallisce sotto questa soglia di agenti riusciti. */
   minSuccesses?: number;
+  /**
+   * Callback invocata ad ogni evento significativo dell'esecuzione.
+   * Permette di monitorare lo stato degli agenti in tempo reale.
+   * Usa `consoleSwarmLogger()` per loggare su stderr senza configurazione.
+   */
+  onProgress?: (event: SwarmProgressEvent) => void;
 }
 
 export interface SwarmStats {

@@ -28,6 +28,7 @@ import {
   LLMJudgeAggregator,
   extractAfterMarker,
   calculatorTool,
+  consoleSwarmLogger,
   type SwarmResult,
 } from '../src/index.js';
 
@@ -73,6 +74,7 @@ async function scenarioMajorityVote(): Promise<void> {
   const swarm = new Swarm(provider, {
     size: 3,
     concurrency: 3,
+    onProgress: consoleSwarmLogger(),
     aggregator: new MajorityVoteAggregator(extractAfterMarker('ANSWER:')),
     agent: {
       model: OLLAMA_MODEL,
@@ -101,6 +103,7 @@ async function scenarioLLMJudge(): Promise<void> {
   const swarm = new Swarm(provider, {
     size: 3,
     concurrency: 3,
+    onProgress: consoleSwarmLogger(),
     aggregator: new LLMJudgeAggregator(provider, {
       model: OLLAMA_MODEL,
       synthesize: true,

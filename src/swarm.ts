@@ -27,14 +27,28 @@ export class Swarm {
   }
 
   async run(task: string): Promise<SwarmResult> {
+    const { onProgress } = this.config;
     const wallStart = Date.now();
     const concurrency = this.config.concurrency ?? this.config.size;
     const ids = Array.from({ length: this.config.size }, (_, i) => `agent-${i + 1}`);
 
+    onProgress?.({ type: 'swarm_start', task, size: this.config.size, concurrency });
+
     // Fan-out: tutti i worker partono sullo stesso task, a concorrenza limitata.
-    const candidates = await mapWithConcurrency(ids, concurrency, (id) =>
-      this.agent.run(id, task),
-    );
+    const candidates = await mapWithConcurrency(ids, concurrency, async (id) => {
+      onProgress?.({ type: 'agent_start', agentId: id });
+      const result = await this.agent.run(id, task, onProgress);
+      onProgress?.({
+        type: 'agent_done',
+        agentId: id,
+        success: result.success,
+        durationMs: result.durationMs,
+        iterations: result.iterations,
+        output: result.success ? result.output : undefined,
+        error: result.error,
+      });
+      return result;
+    });
 
     const succeeded = candidates.filter((c) => c.success);
 
@@ -48,7 +62,11 @@ export class Swarm {
     }
 
     // Fan-in: l'aggregatore riduce i candidati a una risposta sola.
+    onProgress?.({ type: 'aggregating', strategy: this.config.aggregator.name, candidateCount: succeeded.length });
     const final = await this.config.aggregator.aggregate(task, candidates);
+
+    const wallClockMs = Date.now() - wallStart;
+    onProgress?.({ type: 'swarm_done', succeeded: succeeded.length, total: candidates.length, wallClockMs });
 
     return {
       task,
@@ -60,7 +78,7 @@ export class Swarm {
         failed: candidates.length - succeeded.length,
         totalInputTokens: candidates.reduce((s, c) => s + c.inputTokens, 0),
         totalOutputTokens: candidates.reduce((s, c) => s + c.outputTokens, 0),
-        wallClockMs: Date.now() - wallStart,
+        wallClockMs,
       },
     };
   }

@@ -27,6 +27,7 @@ import {
   LLMJudgeAggregator,
   graphifyQueryTool,
   graphifyReportTool,
+  consoleSwarmLogger,
   type SwarmResult,
   OllamaProvider,
 } from '../src/index.js';
@@ -67,6 +68,7 @@ async function scenarioArchitectureAnalysis(): Promise<void> {
   const swarm = new Swarm(provider, {
     size: 3,
     concurrency: 3,
+    onProgress: consoleSwarmLogger(),
     aggregator: new LLMJudgeAggregator(provider, {
       model: 'gpt-oss:20b',
       synthesize: true,

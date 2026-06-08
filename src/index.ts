@@ -50,4 +50,20 @@ export type {
   SwarmResult,
   SwarmStats,
   SwarmProgressEvent,
+  // Pipeline
+  StageConfig,
+  SwarmStageConfig,
+  AgentStageConfig,
+  TransformStageConfig,
+  TaskResolver,
+  StageResult,
+  PipelineContext,
+  PipelineConfig,
+  PipelineProgressEvent,
+  PipelineResult,
+  PipelineStats,
 } from '../types.js';
+
+export { Pipeline } from './pipeline.js';
+export { consolePipelineLogger } from './pipeline-logger.js';
+export type { ConsolePipelineLoggerOptions } from './pipeline-logger.js';

@@ -195,3 +195,105 @@ export interface SwarmResult {
   candidates: AgentResult[];
   stats: SwarmStats;
 }
+
+/* ============================================================================
+ * PIPELINE — Tipi pubblici
+ *
+ * Un layer sequenziale sopra Swarm/Agent: ogni stage riceve l'output del
+ * precedente tramite PipelineContext e può costruire il task dinamicamente.
+ * ============================================================================ */
+
+/** Risultato di uno stage, accumulato nel PipelineContext per gli stage successivi. */
+export interface StageResult {
+  stageName: string;
+  /** Task effettivo passato allo stage (già risolto se era una funzione). */
+  task: string;
+  /** Output testuale principale prodotto dallo stage. */
+  output: string;
+  success: boolean;
+  error?: string;
+  swarmResult?: SwarmResult;
+  agentResult?: AgentResult;
+  durationMs: number;
+}
+
+/** Passato ad ogni stage per costruire task dinamici sui risultati precedenti. */
+export interface PipelineContext {
+  originalTask: string;
+  /** Risultati di tutti gli stage precedenti, indicizzati per nome. */
+  stages: Record<string, StageResult>;
+  /** Shortcut: risultato dell'ultimo stage eseguito. Null per il primo stage. */
+  previous: StageResult | null;
+}
+
+/** Task risolto: stringa statica oppure funzione che legge il context. */
+export type TaskResolver = string | ((ctx: PipelineContext) => string);
+
+/** Stage che esegue uno Swarm (fan-out parallelo + aggregazione). */
+export interface SwarmStageConfig {
+  type: 'swarm';
+  name: string;
+  /** Se omesso, il task è `ctx.previous?.output ?? originalTask`. */
+  task?: TaskResolver;
+  /** onProgress è escluso: la pipeline lo inietta internamente. */
+  swarmConfig: Omit<SwarmConfig, 'onProgress'>;
+}
+
+/** Stage che esegue un singolo Agent (più leggero, nessuna aggregazione). */
+export interface AgentStageConfig {
+  type: 'agent';
+  name: string;
+  task?: TaskResolver;
+  agentConfig: AgentConfig;
+  /** ID da passare all'agente. Default: nome dello stage. */
+  agentId?: string;
+}
+
+/** Stage che esegue una funzione TypeScript pura, senza chiamate LLM. */
+export interface TransformStageConfig {
+  type: 'transform';
+  name: string;
+  /** Riceve il context completo, restituisce l'output. Può essere async. */
+  transform: (ctx: PipelineContext) => string | Promise<string>;
+}
+
+/** Union discriminata di tutti i tipi di stage. */
+export type StageConfig = SwarmStageConfig | AgentStageConfig | TransformStageConfig;
+
+export interface PipelineConfig {
+  stages: StageConfig[];
+  /**
+   * Se true (default), la pipeline lancia un'eccezione al primo stage fallito.
+   * Se false, marca lo stage come failed e continua.
+   */
+  stopOnFailure?: boolean;
+  onProgress?: (event: PipelineProgressEvent) => void;
+}
+
+/**
+ * Evento emesso dalla pipeline durante l'esecuzione.
+ * `stage_event` wrappa gli `SwarmProgressEvent` interni degli stage swarm/agent,
+ * permettendo ai consumer di osservare ogni livello di dettaglio.
+ */
+export type PipelineProgressEvent =
+  | { type: 'pipeline_start'; totalStages: number; task: string }
+  | { type: 'stage_start'; stageName: string; stageType: StageConfig['type']; stageIndex: number; task: string }
+  | { type: 'stage_event'; stageName: string; event: SwarmProgressEvent }
+  | { type: 'stage_done'; stageName: string; stageIndex: number; success: boolean; durationMs: number; output?: string; error?: string }
+  | { type: 'pipeline_error'; stageName: string; error: string }
+  | { type: 'pipeline_done'; totalStages: number; succeededStages: number; totalDurationMs: number };
+
+export interface PipelineStats {
+  totalStages: number;
+  succeededStages: number;
+  failedStages: number;
+  totalDurationMs: number;
+}
+
+export interface PipelineResult {
+  task: string;
+  stages: StageResult[];
+  /** Ultimo stage eseguito con successo. Null se nessuno ha avuto successo. */
+  final: StageResult | null;
+  stats: PipelineStats;
+}

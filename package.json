@@ -1,0 +1,20 @@
+{
+  "name": "swarm-agents",
+  "version": "1.0.0",
+  "description": "Sistema multi-agente swarm in TypeScript: N agenti indipendenti risolvono lo stesso task, poi un aggregatore seleziona o sintetizza la risposta migliore.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "example": "tsx examples/run-swarm.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

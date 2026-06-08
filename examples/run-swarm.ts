@@ -1,7 +1,8 @@
 /**
  * examples/run-swarm.ts
  * ---------------------
- * Demo end-to-end. Due scenari che mostrano quando usare quale aggregatore.
+ * Demo end-to-end con Anthropic Claude. Due scenari che mostrano quando usare
+ * quale aggregatore.
  *
  * Esecuzione:
  *   export ANTHROPIC_API_KEY=sk-ant-...
@@ -10,8 +11,8 @@
  * (oppure, con Node >= 20, mettere la chiave in .env e usare:
  *   node --env-file=.env --import tsx examples/run-swarm.ts)
  */
-import Anthropic from '@anthropic-ai/sdk';
 import {
+  AnthropicProvider,
   Swarm,
   MajorityVoteAggregator,
   LLMJudgeAggregator,
@@ -20,7 +21,8 @@ import {
   type SwarmResult,
 } from '../src/index.js';
 
-const client = new Anthropic(); // legge ANTHROPIC_API_KEY dall'ambiente.
+// AnthropicProvider legge ANTHROPIC_API_KEY dall'ambiente.
+const provider = new AnthropicProvider();
 
 function report(title: string, result: SwarmResult): void {
   console.log(`\n=== ${title} ===`);
@@ -53,7 +55,7 @@ function report(title: string, result: SwarmResult): void {
  * Problema con UNA risposta corretta verificabile. La temperatura alta crea
  * percorsi di ragionamento diversi; il voto di maggioranza scarta gli errori. */
 async function scenarioMajorityVote(): Promise<void> {
-  const swarm = new Swarm(client, {
+  const swarm = new Swarm(provider, {
     size: 5,
     concurrency: 5,
     aggregator: new MajorityVoteAggregator(extractAfterMarker('ANSWER:')),
@@ -80,10 +82,10 @@ async function scenarioMajorityVote(): Promise<void> {
  * Task aperto, senza risposta unica. Il voto non servirebbe (ogni agente
  * produce un testo diverso): un giudice LLM valuta la qualita' e sintetizza. */
 async function scenarioLLMJudge(): Promise<void> {
-  const swarm = new Swarm(client, {
+  const swarm = new Swarm(provider, {
     size: 4,
     concurrency: 4,
-    aggregator: new LLMJudgeAggregator(client, { model: 'claude-opus-4-8', synthesize: true }),
+    aggregator: new LLMJudgeAggregator(provider, { model: 'claude-opus-4-8', synthesize: true }),
     agent: {
       model: 'claude-haiku-4-5',
       temperature: 1,

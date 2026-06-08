@@ -12,8 +12,10 @@
  *    sceglie il migliore o ne sintetizza uno nuovo. Adatto a output aperti
  *    (testo libero, codice, ragionamenti) dove il confronto esatto non basta.
  *    Costa una chiamata API in piu', ma giudica la qualita', non la frequenza.
+ *    Accetta qualsiasi LLMProvider: il giudice puo' essere un modello diverso
+ *    dagli agenti worker (es. worker su Ollama, giudice su Claude Opus).
  */
-import Anthropic from '@anthropic-ai/sdk';
+import type { LLMProvider } from './providers/types.js';
 import type { AggregationResult, Aggregator, AgentResult } from '../types.js';
 
 const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
@@ -99,7 +101,7 @@ export class LLMJudgeAggregator implements Aggregator {
   readonly name = 'llm_judge';
 
   constructor(
-    private readonly client: Anthropic,
+    private readonly provider: LLMProvider,
     private readonly options: LLMJudgeOptions,
   ) {}
 
@@ -144,14 +146,14 @@ export class LLMJudgeAggregator implements Aggregator {
       '{"answer": "<risposta finale>", "winner": <id numerico oppure null>, "confidence": <numero tra 0 e 1>, "rationale": "<breve motivazione>"}',
     ].join('\n');
 
-    const response = await this.client.messages.create({
+    const response = await this.provider.chat({
       model: this.options.model,
       max_tokens: this.options.maxTokens ?? 1024,
       messages: [{ role: 'user', content: prompt }],
     });
 
     const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
       .map((b) => b.text)
       .join('');
 

@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "example": "tsx examples/run-swarm.ts"
+    "example": "tsx examples/run-swarm.ts",
+    "example:ollama": "tsx examples/run-swarm-ollama.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0"

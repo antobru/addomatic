@@ -10,7 +10,7 @@
  *  - su task incerti, il consenso tra agenti indipendenti e' un segnale di
  *    affidabilita' (alta concordanza -> alta confidenza).
  */
-import Anthropic from '@anthropic-ai/sdk';
+import type { LLMProvider } from './providers/types.js';
 import { Agent } from './agent.js';
 import { mapWithConcurrency } from './concurrency.js';
 import type { SwarmConfig, SwarmResult } from '../types.js';
@@ -19,11 +19,11 @@ export class Swarm {
   private readonly agent: Agent;
 
   constructor(
-    private readonly client: Anthropic,
+    provider: LLMProvider,
     private readonly config: SwarmConfig,
   ) {
     // Una sola istanza Agent, riusata da tutti i worker: vedi nota in agent.ts.
-    this.agent = new Agent(client, config.agent);
+    this.agent = new Agent(provider, config.agent);
   }
 
   async run(task: string): Promise<SwarmResult> {

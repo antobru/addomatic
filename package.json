@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "example": "tsx examples/run-swarm.ts",
     "example:ollama": "tsx examples/run-swarm-ollama.ts",
-    "example:dev": "tsx examples/run-swarm-dev.ts"
+    "example:dev": "tsx examples/run-swarm-dev.ts",
+    "example:multi-model": "tsx examples/run-swarm-multi-model.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0"

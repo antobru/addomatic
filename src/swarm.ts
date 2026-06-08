@@ -1,43 +1,65 @@
 /**
  * swarm.ts
  * --------
- * L'orchestratore. A differenza del pattern "supervisore" (un LLM che assegna
- * sotto-task a ruoli diversi), lo swarm e' OMOGENEO: lancia N copie dello
- * stesso agente sullo stesso task e poi delega all'aggregatore la scelta della
- * risposta finale. La ridondanza compra robustezza:
+ * L'orchestratore. Supporta due modalità:
  *
- *  - errori casuali di un singolo agente vengono "votati fuori";
- *  - su task incerti, il consenso tra agenti indipendenti e' un segnale di
- *    affidabilita' (alta concordanza -> alta confidenza).
+ *  - **Omogenea**: N copie identiche dello stesso agente (`size` + `agent`).
+ *    Tutte le istanze condividono lo stesso modello, provider e configurazione.
+ *    La ridondanza compra robustezza: errori casuali vengono "votati fuori".
+ *
+ *  - **Eterogenea**: ogni worker ha il proprio `AgentConfig` e, opzionalmente,
+ *    il proprio `LLMProvider` (`workers: AgentWorkerConfig[]`).
+ *    Permette di mescolare modelli forti/veloci, system prompt diversi
+ *    ("critico" vs "creativo"), o provider diversi (Anthropic + Ollama).
+ *
+ * In entrambi i casi il fan-in viene delegato all'aggregatore.
  */
 import type { LLMProvider } from './providers/types.js';
 import { Agent } from './agent.js';
 import { mapWithConcurrency } from './concurrency.js';
 import type { SwarmConfig, SwarmResult } from '../types.js';
 
+interface ResolvedWorker {
+  id: string;
+  agent: Agent;
+}
+
 export class Swarm {
-  private readonly agent: Agent;
+  private readonly workers: ResolvedWorker[];
 
   constructor(
     provider: LLMProvider,
     private readonly config: SwarmConfig,
   ) {
-    // Una sola istanza Agent, riusata da tutti i worker: vedi nota in agent.ts.
-    this.agent = new Agent(provider, config.agent);
+    if ('workers' in config && config.workers) {
+      // Modalità eterogenea: un Agent per worker, con provider opzionale per ognuno.
+      this.workers = config.workers.map((w, i) => ({
+        id: w.id ?? `agent-${i + 1}`,
+        agent: new Agent(w.provider ?? provider, w.agent),
+      }));
+    } else {
+      // Modalità omogenea: N istanze identiche.
+      // Agent è stateless → riusare la stessa istanza sarebbe uguale, ma creare
+      // N istanze distinte rende il codice simmetrico con il caso eterogeneo.
+      this.workers = Array.from({ length: config.size }, (_, i) => ({
+        id: `agent-${i + 1}`,
+        agent: new Agent(provider, config.agent),
+      }));
+    }
   }
 
   async run(task: string): Promise<SwarmResult> {
     const { onProgress } = this.config;
     const wallStart = Date.now();
-    const concurrency = this.config.concurrency ?? this.config.size;
-    const ids = Array.from({ length: this.config.size }, (_, i) => `agent-${i + 1}`);
+    const size = this.workers.length;
+    const concurrency = this.config.concurrency ?? size;
 
-    onProgress?.({ type: 'swarm_start', task, size: this.config.size, concurrency });
+    onProgress?.({ type: 'swarm_start', task, size, concurrency });
 
     // Fan-out: tutti i worker partono sullo stesso task, a concorrenza limitata.
-    const candidates = await mapWithConcurrency(ids, concurrency, async (id) => {
+    const candidates = await mapWithConcurrency(this.workers, concurrency, async ({ id, agent }) => {
       onProgress?.({ type: 'agent_start', agentId: id });
-      const result = await this.agent.run(id, task, onProgress);
+      const result = await agent.run(id, task, onProgress);
       onProgress?.({
         type: 'agent_done',
         agentId: id,
@@ -56,7 +78,7 @@ export class Swarm {
     // che aggregare su dati troppo pochi e poco affidabili.
     if (this.config.minSuccesses && succeeded.length < this.config.minSuccesses) {
       throw new Error(
-        `Solo ${succeeded.length}/${this.config.size} agenti hanno avuto successo ` +
+        `Solo ${succeeded.length}/${size} agenti hanno avuto successo ` +
           `(minimo richiesto: ${this.config.minSuccesses}).`,
       );
     }

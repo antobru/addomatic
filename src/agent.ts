@@ -107,6 +107,7 @@ export class Agent {
             .trim();
           trace.push({ iteration: iterations, type: 'final', content: finalText });
           return {
+            model: this.model,
             agentId,
             output: finalText,
             trace,
@@ -174,6 +175,7 @@ export class Agent {
       const lastThought =
         [...trace].reverse().find((s) => s.type === 'thinking')?.content ?? '';
       return {
+        model: this.model,
         agentId,
         output: lastThought,
         trace,
@@ -186,6 +188,7 @@ export class Agent {
       };
     } catch (e) {
       return {
+        model: this.model,
         agentId,
         output: '',
         trace,

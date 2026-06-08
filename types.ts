@@ -5,6 +5,7 @@
  * costringe a ragionare sui confini tra componenti: cosa produce un agente,
  * cosa si aspetta un aggregatore, com'e' fatta la configurazione di uno swarm.
  */
+import type { LLMProvider } from './src/providers/types.js';
 
 /* ----------------------------------------------------------------------------
  * TOOL
@@ -24,6 +25,19 @@ export interface AgentTool {
   description: string;
   input_schema: JSONSchema;
   execute: (input: Record<string, unknown>) => Promise<string> | string;
+}
+
+/* ----------------------------------------------------------------------------
+ * WORKER CONFIG (eterogeneo)
+ * Configurazione per un singolo worker in uno swarm eterogeneo.
+ * `provider` sovrascrive il provider globale dello swarm per questo worker.
+ * -------------------------------------------------------------------------- */
+export interface AgentWorkerConfig {
+  /** Label visibile nei log: "opus-worker", "haiku-fast-1", ecc. Default: "agent-N". */
+  id?: string;
+  agent: AgentConfig;
+  /** Provider da usare per questo specifico worker (sovrascrive quello globale). */
+  provider?: LLMProvider;
 }
 
 /* ----------------------------------------------------------------------------
@@ -64,6 +78,8 @@ export interface TraceStep {
  * -------------------------------------------------------------------------- */
 export interface AgentResult {
   agentId: string;
+  /** Modello usato da questo agente — utile con swarm eterogenei per vedere quale ha vinto. */
+  model: string;
   /** Risposta testuale finale dell'agente. */
   output: string;
   /** Sequenza completa di ragionamento + tool call. */
@@ -125,14 +141,10 @@ export type SwarmProgressEvent =
   | { type: 'aggregating'; strategy: string; candidateCount: number }
   | { type: 'swarm_done'; succeeded: number; total: number; wallClockMs: number };
 
-export interface SwarmConfig {
-  /** Numero di agenti worker da lanciare. */
-  size: number;
-  /** Configurazione condivisa da tutti i worker. */
-  agent: AgentConfig;
+type SwarmConfigBase = {
   /** Come combinare i risultati dei worker. */
   aggregator: Aggregator;
-  /** Numero massimo di agenti eseguiti contemporaneamente. Default: `size`. */
+  /** Numero massimo di agenti eseguiti contemporaneamente. Default: numero di worker. */
   concurrency?: number;
   /** Se impostato, lo swarm fallisce sotto questa soglia di agenti riusciti. */
   minSuccesses?: number;
@@ -142,7 +154,30 @@ export interface SwarmConfig {
    * Usa `consoleSwarmLogger()` per loggare su stderr senza configurazione.
    */
   onProgress?: (event: SwarmProgressEvent) => void;
-}
+};
+
+/**
+ * Configurazione dello swarm.
+ *
+ * **Modalità omogenea** — N copie identiche dello stesso agente:
+ * ```ts
+ * { size: 5, agent: { model: 'claude-haiku-4-5', ... }, aggregator: ... }
+ * ```
+ *
+ * **Modalità eterogenea** — ogni worker ha il suo `AgentConfig` e provider opzionale:
+ * ```ts
+ * { workers: [
+ *     { id: 'opus',   agent: { model: 'claude-opus-4-8', temperature: 0.2, ... } },
+ *     { id: 'haiku',  agent: { model: 'claude-haiku-4-5', temperature: 0.9, ... } },
+ *     { id: 'local',  agent: { model: 'llama3.1', ... }, provider: new OllamaProvider() },
+ *   ], aggregator: ...
+ * }
+ * ```
+ */
+export type SwarmConfig = SwarmConfigBase & (
+  | { size: number; agent: AgentConfig; workers?: never }
+  | { workers: AgentWorkerConfig[]; size?: never; agent?: never }
+);
 
 export interface SwarmStats {
   total: number;

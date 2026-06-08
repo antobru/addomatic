@@ -40,6 +40,7 @@ export type {
   AgentTool,
   JSONSchema,
   AgentConfig,
+  AgentWorkerConfig,
   AgentResult,
   TraceStep,
   TraceStepType,

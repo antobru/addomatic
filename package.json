@@ -11,7 +11,11 @@
     "example:ollama": "tsx examples/run-swarm-ollama.ts",
     "example:dev": "tsx examples/run-swarm-dev.ts",
     "example:multi-model": "tsx examples/run-swarm-multi-model.ts",
-    "example:pipeline": "tsx examples/run-pipeline-dev.ts"
+    "example:pipeline": "tsx examples/run-pipeline-dev.ts",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "npm run dev:server & npm run dev:client",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0"

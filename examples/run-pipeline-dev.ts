@@ -84,7 +84,7 @@ async function main(): Promise<void> {
               'Elenca ogni requisito su una riga separata nel formato esatto "REQ-N: <descrizione>". ' +
               'Includi requisiti di autenticazione, gestione permessi, CRUD task, notifiche e performance.',
         agentConfig: {
-          model: 'claude-haiku-4-5',
+          model: 'gpt-oss:20b',
           temperature: 0.3,
           maxTokens: 1024,
           systemPrompt:
@@ -110,12 +110,12 @@ async function main(): Promise<void> {
           size: 3,
           concurrency: 3,
           aggregator: new LLMJudgeAggregator(provider, {
-            model: 'claude-haiku-4-5',
+            model: 'gpt-oss:20b',
             synthesize: true,
             maxTokens: 1024,
           }),
           agent: {
-            model: 'claude-haiku-4-5',
+            model: 'qwen2.5:7b',
             temperature: 0.7,
             maxTokens: 1024,
             systemPrompt:
@@ -171,15 +171,15 @@ async function main(): Promise<void> {
           );
         },
         swarmConfig: {
-          size: 4,
+          size: 2,
           concurrency: 2,
           aggregator: new LLMJudgeAggregator(provider, {
-            model: 'claude-haiku-4-5',
+            model: 'qwen3-coder:30b',
             synthesize: true,
             maxTokens: 2048,
           }),
           agent: {
-            model: 'claude-haiku-4-5',
+            model: 'qwen3-coder:30b',
             temperature: 0.5,
             maxTokens: 2048,
             systemPrompt:
@@ -210,7 +210,7 @@ async function main(): Promise<void> {
           );
         },
         agentConfig: {
-          model: 'claude-haiku-4-5',
+          model: 'gpt-oss:20b',
           temperature: 0.2,
           maxTokens: 1024,
           systemPrompt:

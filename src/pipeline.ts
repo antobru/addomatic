@@ -4,10 +4,11 @@
  * Orchestratore sequenziale. Ogni stage riceve l'output del precedente
  * attraverso PipelineContext e può costruire il proprio task dinamicamente.
  *
- * I tre tipi di stage:
+ * I quattro tipi di stage:
  *  - swarm:     fan-out su N agenti + aggregazione (massima robustezza)
  *  - agent:     singolo agente (più economico per step semplici)
  *  - transform: funzione TypeScript pura, zero API call (formattazione, routing)
+ *  - action:    codice arbitrario con side-effect (chiamate API, I/O, DB)
  *
  * La pipeline istanzia Swarm/Agent internamente per ogni stage: l'utente
  * specifica solo la configurazione, non gestisce il ciclo di vita degli oggetti.
@@ -26,6 +27,7 @@ import type {
   SwarmStageConfig,
   AgentStageConfig,
   TransformStageConfig,
+  ActionStageConfig,
   SwarmProgressEvent,
 } from '../types.js';
 
@@ -151,6 +153,7 @@ export class Pipeline {
       case 'swarm': return this.runSwarmStage(stage, task, start, wrap);
       case 'agent': return this.runAgentStage(stage, task, start, wrap);
       case 'transform': return this.runTransformStage(stage, ctx, start);
+      case 'action': return this.runActionStage(stage, task, ctx, start);
     }
   }
 
@@ -208,5 +211,37 @@ export class Pipeline {
       success: true,
       durationMs: Date.now() - start,
     };
+  }
+
+  private async runActionStage(
+    stage: ActionStageConfig,
+    task: string,
+    ctx: PipelineContext,
+    start: number,
+  ): Promise<StageResult> {
+    try {
+      const executePromise = Promise.resolve(stage.execute(ctx, task));
+      const output = stage.timeout
+        ? await Promise.race([
+            executePromise,
+            new Promise<never>((_, reject) =>
+              setTimeout(
+                () => reject(new Error(`Action "${stage.name}" timeout after ${stage.timeout}ms`)),
+                stage.timeout,
+              )
+            ),
+          ])
+        : await executePromise;
+      return { stageName: stage.name, task, output, success: true, durationMs: Date.now() - start };
+    } catch (err) {
+      return {
+        stageName: stage.name,
+        task,
+        output: '',
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - start,
+      };
+    }
   }
 }

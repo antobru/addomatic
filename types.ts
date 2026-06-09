@@ -257,8 +257,20 @@ export interface TransformStageConfig {
   transform: (ctx: PipelineContext) => string | Promise<string>;
 }
 
+/** Stage che esegue codice arbitrario con possibili side-effect (chiamate API, I/O, ecc.). */
+export interface ActionStageConfig {
+  type: 'action';
+  name: string;
+  /** Se omesso, usa `ctx.previous?.output ?? originalTask`. */
+  task?: TaskResolver;
+  /** Riceve il context completo e il task risolto. Può essere async. */
+  execute: (ctx: PipelineContext, resolvedTask: string) => string | Promise<string>;
+  /** Timeout in ms. Se superato, lo stage fallisce con errore. Nessun limite per default. */
+  timeout?: number;
+}
+
 /** Union discriminata di tutti i tipi di stage. */
-export type StageConfig = SwarmStageConfig | AgentStageConfig | TransformStageConfig;
+export type StageConfig = SwarmStageConfig | AgentStageConfig | TransformStageConfig | ActionStageConfig;
 
 export interface PipelineConfig {
   stages: StageConfig[];

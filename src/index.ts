@@ -55,6 +55,7 @@ export type {
   SwarmStageConfig,
   AgentStageConfig,
   TransformStageConfig,
+  ActionStageConfig,
   TaskResolver,
   StageResult,
   PipelineContext,

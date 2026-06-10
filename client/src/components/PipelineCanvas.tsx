@@ -6,6 +6,7 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
+  BackgroundVariant,
   type Node,
   type Edge,
   type Connection,
@@ -17,11 +18,18 @@ import type { StageNodeData } from './StageNode.js';
 
 const NODE_TYPES = { stageNode: StageNode };
 
-const TYPE_COLORS: Record<StageType, string> = {
-  swarm: '#7c3aed',
-  agent: '#0891b2',
-  transform: '#059669',
-  action: '#d97706',
+const TYPE_CONFIG: Record<StageType, { color: string; bg: string; border: string; label: string }> = {
+  swarm: { color: 'text-violet-400', bg: 'bg-violet-500/10 hover:bg-violet-500/20', border: 'border-violet-500/40 hover:border-violet-500/70', label: 'Swarm' },
+  agent: { color: 'text-sky-400', bg: 'bg-sky-500/10 hover:bg-sky-500/20', border: 'border-sky-500/40 hover:border-sky-500/70', label: 'Agent' },
+  transform: { color: 'text-emerald-400', bg: 'bg-emerald-500/10 hover:bg-emerald-500/20', border: 'border-emerald-500/40 hover:border-emerald-500/70', label: 'Transform' },
+  action: { color: 'text-amber-400', bg: 'bg-amber-500/10 hover:bg-amber-500/20', border: 'border-amber-500/40 hover:border-amber-500/70', label: 'Action' },
+};
+
+const EDGE_COLORS: Record<StageType, string> = {
+  swarm: '#8b5cf6',
+  agent: '#0ea5e9',
+  transform: '#10b981',
+  action: '#f59e0b',
 };
 
 interface Props {
@@ -36,17 +44,15 @@ interface Props {
 function buildNodesAndEdges(
   stages: SerializableStageConfig[],
   selectedId: string | null,
-  onSelect: (id: string) => void,
   onDelete: (id: string) => void,
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = stages.map((stage, i) => ({
     id: stage.id,
     type: 'stageNode',
-    position: { x: i * 220, y: 80 },
+    position: { x: i * 230, y: 80 },
     data: {
       stage,
       selected: stage.id === selectedId,
-      onSelect,
       onDelete,
     } satisfies StageNodeData,
   }));
@@ -55,7 +61,7 @@ function buildNodesAndEdges(
     id: `e-${stage.id}-${stages[i + 1]!.id}`,
     source: stage.id,
     target: stages[i + 1]!.id,
-    style: { stroke: TYPE_COLORS[stages[i + 1]!.type], strokeWidth: 2 },
+    style: { stroke: EDGE_COLORS[stages[i + 1]!.type], strokeWidth: 2, opacity: 0.6 },
     animated: false,
   }));
 
@@ -71,28 +77,26 @@ export function PipelineCanvas({
   onAddStage,
 }: Props) {
   const { nodes: initNodes, edges: initEdges } = useMemo(
-    () => buildNodesAndEdges(stages, selectedStageId, onSelectStage, onDeleteStage),
-    [stages, selectedStageId, onSelectStage, onDeleteStage],
+    () => buildNodesAndEdges(stages, selectedStageId, onDeleteStage),
+    [stages, selectedStageId, onDeleteStage],
   );
 
   const [nodes, , onNodesChange] = useNodesState(initNodes);
   const [, setEdges, onEdgesChange] = useEdgesState(initEdges);
 
-  // Sync external stages changes into nodes
   const syncedNodes = useMemo(
     () =>
       stages.map((stage, i) => ({
         id: stage.id,
         type: 'stageNode',
-        position: nodes.find((n) => n.id === stage.id)?.position ?? { x: i * 220, y: 80 },
+        position: nodes.find((n) => n.id === stage.id)?.position ?? { x: i * 230, y: 80 },
         data: {
           stage,
           selected: stage.id === selectedStageId,
-          onSelect: onSelectStage,
           onDelete: onDeleteStage,
         } satisfies StageNodeData,
       })),
-    [stages, selectedStageId, nodes, onSelectStage, onDeleteStage],
+    [stages, selectedStageId, nodes, onDeleteStage],
   );
 
   const syncedEdges = useMemo(
@@ -101,7 +105,7 @@ export function PipelineCanvas({
         id: `e-${stage.id}-${stages[i + 1]!.id}`,
         source: stage.id,
         target: stages[i + 1]!.id,
-        style: { stroke: TYPE_COLORS[stages[i + 1]!.type], strokeWidth: 2 },
+        style: { stroke: EDGE_COLORS[stages[i + 1]!.type], strokeWidth: 2, opacity: 0.6 },
         animated: false,
       })),
     [stages],
@@ -115,54 +119,32 @@ export function PipelineCanvas({
   const ADD_TYPES: StageType[] = ['swarm', 'agent', 'transform', 'action'];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* toolbar add-stage */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 8,
-          padding: '8px 12px',
-          background: '#111',
-          borderBottom: '1px solid #2a2a2a',
-          alignItems: 'center',
-        }}
-      >
-        <span style={{ color: '#555', fontSize: 11 }}>+ Stage:</span>
-        {ADD_TYPES.map((t) => (
-          <button
-            key={t}
-            onClick={() => onAddStage(t)}
-            style={{
-              background: TYPE_COLORS[t] + '22',
-              border: `1px solid ${TYPE_COLORS[t]}`,
-              borderRadius: 4,
-              color: TYPE_COLORS[t],
-              fontSize: 11,
-              padding: '3px 10px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              letterSpacing: 0.5,
-            }}
-          >
-            {t}
-          </button>
-        ))}
+    <div className="h-full flex flex-col">
+      {/* Add-stage toolbar */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/60 border-b border-zinc-800 flex-shrink-0 backdrop-blur-sm">
+        <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase mr-1">
+          + Stage
+        </span>
+        {ADD_TYPES.map((t) => {
+          const cfg = TYPE_CONFIG[t];
+          return (
+            <button
+              key={t}
+              onClick={() => onAddStage(t)}
+              className={`text-xs px-3 py-1 rounded-lg border font-semibold transition-all ${cfg.color} ${cfg.bg} ${cfg.border}`}
+            >
+              {cfg.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* canvas */}
-      <div style={{ flex: 1 }}>
+      {/* Canvas */}
+      <div className="flex-1 min-h-0">
         {stages.length === 0 ? (
-          <div
-            style={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#444',
-              fontSize: 14,
-            }}
-          >
-            Aggiungi il primo stage dalla toolbar
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-600">
+            <div className="text-4xl opacity-20">⬡</div>
+            <p className="text-sm">Aggiungi il primo stage dalla toolbar</p>
           </div>
         ) : (
           <ReactFlow
@@ -172,13 +154,22 @@ export function PipelineCanvas({
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onNodeClick={(_event, node) => onSelectStage(node.id)}
             onPaneClick={() => onSelectStage(null)}
             fitView
-            fitViewOptions={{ padding: 0.3 }}
-            style={{ background: '#0d0d0d' }}
+            fitViewOptions={{ padding: 0.4 }}
+            style={{ background: '#09090b' }}
+            proOptions={{ hideAttribution: true }}
           >
-            <Background color="#1a1a1a" />
-            <Controls style={{ background: '#111', border: '1px solid #333' }} />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={24}
+              size={1}
+              color="#27272a"
+            />
+            <Controls
+              className="!bg-zinc-900 !border !border-zinc-700 !rounded-xl !overflow-hidden !shadow-xl"
+            />
           </ReactFlow>
         )}
       </div>

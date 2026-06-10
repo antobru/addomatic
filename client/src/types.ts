@@ -63,6 +63,12 @@ export type SerializableStageConfig =
   | SerializableTransformStage
   | SerializableActionStage;
 
+export interface VarDefinition {
+  name: string;
+  defaultValue: string;
+  description?: string;
+}
+
 export interface SerializablePipeline {
   id: string;
   name: string;
@@ -71,6 +77,7 @@ export interface SerializablePipeline {
   updatedAt: string;
   stopOnFailure?: boolean;
   stages: SerializableStageConfig[];
+  vars?: VarDefinition[];
 }
 
 export interface PipelineSummary {

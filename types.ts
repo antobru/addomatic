@@ -224,6 +224,8 @@ export interface PipelineContext {
   stages: Record<string, StageResult>;
   /** Shortcut: risultato dell'ultimo stage eseguito. Null per il primo stage. */
   previous: StageResult | null;
+  /** Variabili fornite all'avvio della pipeline, accessibili in template e codice. */
+  vars: Record<string, string>;
 }
 
 /** Task risolto: stringa statica oppure funzione che legge il context. */

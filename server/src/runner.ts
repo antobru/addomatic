@@ -42,7 +42,8 @@ function resolveTemplate(template: string, ctx: PipelineContext): string {
   return template
     .replace(/\{original\}/g, ctx.originalTask)
     .replace(/\{previous\}/g, ctx.previous?.output ?? '')
-    .replace(/\{stages\.([^}]+)\}/g, (_, name: string) => ctx.stages[name]?.output ?? '');
+    .replace(/\{stages\.([^}]+)\}/g, (_, name: string) => ctx.stages[name]?.output ?? '')
+    .replace(/\{vars\.([^}]+)\}/g, (_, key: string) => ctx.vars?.[key] ?? '');
 }
 
 function makeTaskResolver(task: string | undefined): ((ctx: PipelineContext) => string) | undefined {
@@ -152,6 +153,15 @@ export function buildPipelineConfig(
     stopOnFailure: pipeline.stopOnFailure ?? true,
     onProgress,
   };
+}
+
+/** Merge: defaults dalla pipeline + override forniti a runtime. */
+export function mergeVars(
+  pipeline: SerializablePipeline,
+  runtimeVars: Record<string, string> = {},
+): Record<string, string> {
+  const defaults = Object.fromEntries((pipeline.vars ?? []).map((v) => [v.name, v.defaultValue]));
+  return { ...defaults, ...runtimeVars };
 }
 
 export function createDefaultProvider(): LLMProvider {

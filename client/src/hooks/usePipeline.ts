@@ -81,7 +81,7 @@ export function usePipeline() {
   }, []);
 
   const updatePipelineMeta = useCallback(
-    (patch: Partial<Pick<SerializablePipeline, 'name' | 'description' | 'stopOnFailure'>>) => {
+    (patch: Partial<Pick<SerializablePipeline, 'name' | 'description' | 'stopOnFailure' | 'vars'>>) => {
       setCurrent((p) => (p ? { ...p, ...patch } : p));
       setIsDirty(true);
     },
@@ -152,7 +152,7 @@ export function usePipeline() {
   // ── Run ───────────────────────────────────────────────────────────────────
 
   const runPipeline = useCallback(
-    async (task: string) => {
+    async (task: string, vars: Record<string, string> = {}) => {
       if (!current?.id) return;
       setRunLogs([]);
       setIsRunning(true);
@@ -160,7 +160,7 @@ export function usePipeline() {
       const res = await fetch(`${API}/${current.id}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task }),
+        body: JSON.stringify({ task, vars }),
       });
 
       const reader = res.body?.getReader();

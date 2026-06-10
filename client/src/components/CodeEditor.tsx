@@ -9,13 +9,11 @@ interface Props {
 
 export function CodeEditor({ value, onChange, height = 200, label }: Props) {
   return (
-    <div style={{ marginBottom: 12 }}>
+    <div className="mb-3">
       {label && (
-        <div style={{ fontSize: 11, color: '#888', marginBottom: 4, fontFamily: 'monospace' }}>
-          {label}
-        </div>
+        <p className="text-[10px] font-mono text-zinc-500 mb-2 leading-relaxed truncate">{label}</p>
       )}
-      <div style={{ border: '1px solid #333', borderRadius: 4, overflow: 'hidden' }}>
+      <div className="rounded-lg overflow-hidden border border-zinc-700/60 ring-1 ring-zinc-800/60">
         <MonacoEditor
           height={height}
           language="javascript"
@@ -29,6 +27,7 @@ export function CodeEditor({ value, onChange, height = 200, label }: Props) {
             lineNumbers: 'on',
             wordWrap: 'on',
             tabSize: 2,
+            fontFamily: "'JetBrains Mono', monospace",
           }}
         />
       </div>

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Pipeline } from '../../../src/pipeline.js';
 import type { PipelineStorage } from '../storage/interface.js';
 import type { SerializablePipeline } from '../types.js';
-import { buildPipelineConfig, createDefaultProvider } from '../runner.js';
+import { buildPipelineConfig, createDefaultProvider, mergeVars } from '../runner.js';
 import type { PipelineProgressEvent } from '../../../types.js';
 
 export function createPipelinesRouter(storage: PipelineStorage): Router {
@@ -102,8 +102,9 @@ export function createPipelinesRouter(storage: PipelineStorage): Router {
       const provider = createDefaultProvider();
       const config = buildPipelineConfig(pipeline, provider, send);
       const runner = new Pipeline(provider, config);
-      const task = req.body?.task ?? pipeline.name;
-      await runner.run(task);
+      const task: string = req.body?.task ?? pipeline.name;
+      const vars = mergeVars(pipeline, (req.body?.vars as Record<string, string>) ?? {});
+      await runner.run(task, vars);
     } catch (err) {
       res.write(
         `data: ${JSON.stringify({ type: 'pipeline_error', stageName: '', error: String(err) })}\n\n`,

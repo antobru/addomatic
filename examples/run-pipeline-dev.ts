@@ -24,7 +24,7 @@ import {
   OllamaProvider,
 } from '../src/index.js';
 
-const provider = new OllamaProvider();
+const provider = new OllamaProvider('http://196.168.1.76:11434/v1');
 
 // ── Report finale ─────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
             maxTokens: 1024,
           }),
           agent: {
-            model: 'qwen2.5:7b',
+            model: 'qwen3-coder:30b',
             temperature: 0.7,
             maxTokens: 1024,
             systemPrompt:

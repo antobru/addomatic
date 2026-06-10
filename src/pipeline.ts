@@ -37,14 +37,14 @@ export class Pipeline {
     private readonly config: PipelineConfig,
   ) {}
 
-  async run(task: string): Promise<PipelineResult> {
+  async run(task: string, vars: Record<string, string> = {}): Promise<PipelineResult> {
     const { stages, stopOnFailure = true, onProgress } = this.config;
     const pipelineStart = Date.now();
 
     onProgress?.({ type: 'pipeline_start', totalStages: stages.length, task });
 
     const results: StageResult[] = [];
-    const ctx: PipelineContext = { originalTask: task, stages: {}, previous: null };
+    const ctx: PipelineContext = { originalTask: task, stages: {}, previous: null, vars };
 
     for (let i = 0; i < stages.length; i++) {
       const stageConfig = stages[i]!;

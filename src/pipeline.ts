@@ -185,8 +185,19 @@ export class Pipeline {
     start: number,
     wrap: (event: SwarmProgressEvent) => void,
   ): Promise<StageResult> {
+    const agentId = stage.agentId ?? stage.name;
     const agent = new Agent(this.provider, stage.agentConfig);
-    const agentResult = await agent.run(stage.agentId ?? stage.name, task, wrap);
+    wrap({ type: 'agent_start', agentId });
+    const agentResult = await agent.run(agentId, task, wrap);
+    wrap({
+      type: 'agent_done',
+      agentId,
+      success: agentResult.success,
+      durationMs: agentResult.durationMs,
+      iterations: agentResult.iterations,
+      output: agentResult.success ? agentResult.output : undefined,
+      error: agentResult.error,
+    });
     return {
       stageName: stage.name,
       task,

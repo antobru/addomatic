@@ -45,6 +45,7 @@ export interface AgentWorkerConfig {
  * Tutti i worker dello swarm condividono questa stessa configurazione.
  * -------------------------------------------------------------------------- */
 export interface AgentConfig {
+  provider?: LLMProvider;
   /** Identificatore del modello, es. "claude-haiku-4-5". */
   model: string;
   /** System prompt che definisce ruolo e comportamento del worker. */
@@ -239,6 +240,8 @@ export interface SwarmStageConfig {
   task?: TaskResolver;
   /** onProgress è escluso: la pipeline lo inietta internamente. */
   swarmConfig: Omit<SwarmConfig, 'onProgress'>;
+  /** Provider LLM per questo stage. Sovrascrive il provider globale della pipeline. */
+  provider?: LLMProvider;
 }
 
 /** Stage che esegue un singolo Agent (più leggero, nessuna aggregazione). */
@@ -249,6 +252,8 @@ export interface AgentStageConfig {
   agentConfig: AgentConfig;
   /** ID da passare all'agente. Default: nome dello stage. */
   agentId?: string;
+  /** Provider LLM per questo stage. Sovrascrive il provider globale della pipeline. */
+  provider?: LLMProvider;
 }
 
 /** Stage che esegue una funzione TypeScript pura, senza chiamate LLM. */

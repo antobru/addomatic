@@ -100,6 +100,11 @@ export class Pipeline {
         output: result!.success ? result!.output : undefined,
         error: result!.error,
       });
+
+      if (!result!.success && stopOnFailure) {
+        onProgress?.({ type: 'pipeline_error', stageName: stageConfig.name, error: result!.error ?? 'errore sconosciuto' });
+        throw new Error(`Pipeline interrotta allo stage "${stageConfig.name}": ${result!.error ?? 'errore sconosciuto'}`);
+      }
     }
 
     const succeededStages = results.filter((r) => r.success).length;
@@ -167,7 +172,7 @@ export class Pipeline {
     // narrowing della discriminated union. L'invariante è garantita a runtime
     // dalla definizione di SwarmStageConfig (swarmConfig è già un SwarmConfig valido).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const swarm = new Swarm(this.provider, { ...stage.swarmConfig, onProgress: wrap } as any);
+    const swarm = new Swarm(stage.provider ?? this.provider, { ...stage.swarmConfig, onProgress: wrap } as any);
     const swarmResult = await swarm.run(task);
     return {
       stageName: stage.name,
@@ -186,7 +191,7 @@ export class Pipeline {
     wrap: (event: SwarmProgressEvent) => void,
   ): Promise<StageResult> {
     const agentId = stage.agentId ?? stage.name;
-    const agent = new Agent(this.provider, stage.agentConfig);
+    const agent = new Agent(stage.provider ?? this.provider, stage.agentConfig);
     wrap({ type: 'agent_start', agentId });
     const agentResult = await agent.run(agentId, task, wrap);
     wrap({

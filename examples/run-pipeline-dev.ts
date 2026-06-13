@@ -24,7 +24,7 @@ import {
   OllamaProvider,
 } from '../src/index.js';
 
-const provider = new OllamaProvider('http://196.168.1.76:11434/v1');
+const provider = new OllamaProvider('http://81.31.154.148:11434/v1');
 
 // ── Report finale ─────────────────────────────────────────────────────────────
 

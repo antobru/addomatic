@@ -79,7 +79,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const body = {
       model: params.model,
       messages: oaiMessages,
-      max_tokens: params.max_tokens ?? 2048,
+      max_completion_tokens: params.max_tokens ?? 2048,
       temperature: params.temperature ?? 1,
       ...(params.tools && params.tools.length > 0
         ? {

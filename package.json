@@ -12,6 +12,7 @@
     "example:dev": "tsx examples/run-swarm-dev.ts",
     "example:multi-model": "tsx examples/run-swarm-multi-model.ts",
     "example:pipeline": "tsx examples/run-pipeline-dev.ts",
+    "example:pdf-stime": "tsx examples/run-pipeline-pdf-stime.ts",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "dev": "npm run dev:server & npm run dev:client",
@@ -22,6 +23,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "pdfjs-dist": "^5.6.205",
+    "tesseract.js": "^7.0.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }

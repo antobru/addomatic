@@ -37,7 +37,7 @@ export class Agent {
   private readonly maxIterations: number;
 
   constructor(provider: LLMProvider, config: AgentConfig) {
-    this.provider = provider;
+    this.provider = config.provider ?? provider;
     this.model = config.model;
     this.systemPrompt = config.systemPrompt;
     this.tools = config.tools ?? [];

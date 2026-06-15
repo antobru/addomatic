@@ -3,6 +3,8 @@ import cors from 'cors';
 import { JsonFileStorage } from './storage/json-files.js';
 import { createPipelinesRouter } from './routes/pipelines.js';
 import { createProjectsRouter } from './routes/projects.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const PORT = process.env['PORT'] ? parseInt(process.env['PORT']) : 3001;
 

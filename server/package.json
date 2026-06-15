@@ -13,6 +13,7 @@
     "@addomatic/core": "file:../core",
     "@makeplane/plane-node-sdk": "^0.2.11",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "showdown": "^2.1.0"
   },

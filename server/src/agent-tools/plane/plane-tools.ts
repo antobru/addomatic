@@ -1,4 +1,4 @@
-import { PlaneClient } from '@makeplane/plane-node-sdk';
+import { PlaneClient, PlaneError } from '@makeplane/plane-node-sdk';
 import type { AgentTool } from '@addomatic/core';
 
 export interface PlaneToolsConfig {
@@ -34,6 +34,7 @@ export function planeMcpTools(config: PlaneToolsConfig): AgentTool[] {
     planeListCyclesTool(client, ws),
     planeCreateCycleTool(client, ws, config.defaultOwnedBy),
     planeAddIssuesToCycleTool(client, ws),
+    planeCreateRelationTool(client, ws),
   ];
 }
 
@@ -44,6 +45,10 @@ function ok(data: unknown): string {
 }
 
 function err(e: unknown): string {
+  if (e instanceof PlaneError) {
+    const detail = e.response ? ` — ${JSON.stringify(e.response)}` : '';
+    return `Errore ${e.statusCode}: ${e.message}${detail}`;
+  }
   return `Errore: ${e instanceof Error ? e.message : String(e)}`;
 }
 
@@ -380,6 +385,49 @@ function planeCreateCycleTool(client: PlaneClient, ws: string, defaultOwnedBy?: 
           owned_by: ownedBy,
           project_id: String(input['project_id']),
         });
+        return ok(result);
+      } catch (e) {
+        return err(e);
+      }
+    },
+  };
+}
+
+function planeCreateRelationTool(client: PlaneClient, ws: string): AgentTool {
+  return {
+    name: 'plane_create_relation',
+    description:
+      'Crea una relazione tra work item Plane. ' +
+      'Usa relation_type "blocked_by" per dire che issue_id è bloccata dalle issue in blocked_by_ids.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string', description: 'ID del progetto.' },
+        issue_id: { type: 'string', description: 'ID della issue su cui impostare la relazione.' },
+        relation_type: {
+          type: 'string',
+          enum: ['blocking', 'blocked_by', 'duplicate', 'relates_to'],
+          description: 'Tipo di relazione.',
+        },
+        related_issue_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'ID delle issue correlate.',
+        },
+      },
+      required: ['project_id', 'issue_id', 'relation_type', 'related_issue_ids'],
+    },
+    execute: async (input) => {
+      try {
+        const result = await client.workItems.relations.create(
+          ws,
+          String(input['project_id']),
+          String(input['issue_id']),
+          {
+            relation_type: input['relation_type'] as 'blocking' | 'blocked_by' | 'duplicate' | 'relates_to',
+            issues: input['related_issue_ids'] as string[],
+          },
+        );
         return ok(result);
       } catch (e) {
         return err(e);

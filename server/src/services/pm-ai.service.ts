@@ -1,3 +1,4 @@
+import Showdown from 'showdown';
 import {
   consolePipelineLogger,
   Pipeline,
@@ -56,21 +57,53 @@ async function callTool(
   return output;
 }
 
-/** Ricava nome e identifier progetto dalla prima riga significativa dello scope. */
+/** Ricava nome e identifier progetto dallo scope. Cerca prima "Nome Progetto:" esplicito. */
 function deriveProjectIdentity(scopeOutput: string): { name: string; identifier: string } {
-  // Cerca il testo dopo "Obiettivo principale" se presente
+  const nameMatch = scopeOutput.match(/nome progetto[^:\n]*:\*{0,2}\s*\*{0,2}\s*([^\n]{3,60})/i);
   const objectiveMatch = scopeOutput.match(/obiettivo[^:\n]*:?\*{0,2}\s*\n?\s*([^\n*#\d][^\n]{5,})/i);
   const raw =
+    nameMatch?.[1]?.trim() ??
     objectiveMatch?.[1]?.trim() ??
     scopeOutput.split('\n').find((l) => l.trim() && !/^[#*\d]/.test(l.trim()))?.trim() ??
     'Progetto';
 
-  const name = raw.slice(0, 50);
-  // Identifier: lettere+cifre maiuscoli, max 8 chars + 2 casuali per evitare collisioni
+  const name = raw.replace(/[^\w\s\-.,()]/g, '').replace(/\s+/g, ' ').trim().slice(0, 50);
   const base = raw.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8) || 'PROJ';
   const suffix = Math.random().toString(36).slice(2, 4).toUpperCase();
   const identifier = (base + suffix).slice(0, 10);
   return { name, identifier };
+}
+
+interface TaskParsed {
+  taskId: string;
+  name: string;
+  priority: 'urgent' | 'high' | 'medium' | 'low' | 'none';
+  deps: string[];
+}
+
+/** Parsa i blocchi TASK-N dalla WBS estraendo nome, priorità e dipendenze. */
+function parseWbsTasks(wbs: string): TaskParsed[] {
+  const blocks = wbs.split(/(?=^TASK-\d+:)/mi).filter((b) => /^TASK-\d+:/i.test(b.trim()));
+  return blocks.map((block) => {
+    const header = block.match(/^TASK-(\d+):\s*(.+)/im)!;
+    const taskId = header[1]!;
+    const name = header[2]!.trim();
+
+    const prioRaw = block.match(/priorit[aà][^:]*:\s*(\w+)/i)?.[1]?.toLowerCase() ?? 'media';
+    const priority: TaskParsed['priority'] =
+      prioRaw === 'alta' ? 'high' :
+      prioRaw === 'bassa' ? 'low' :
+      prioRaw === 'urgente' ? 'urgent' :
+      'medium';
+
+    const depsRaw = block.match(/dipendenze[^:]*:\s*(.+)/i)?.[1] ?? '';
+    const deps: string[] = [];
+    if (!/nessuna/i.test(depsRaw)) {
+      for (const m of depsRaw.matchAll(/TASK-(\d+)/gi)) deps.push(m[1]!);
+    }
+
+    return { taskId, name, priority, deps };
+  });
 }
 
 // ── Servizio ──────────────────────────────────────────────────────────────────
@@ -111,11 +144,9 @@ export class PmAiService {
             name: 'plane-setup',
             execute: async (ctx: PipelineContext): Promise<string> => {
               try {
-                // a) Parse deterministico dei TASK-N dalla WBS (stage 3)
+                // a) Parse completo della WBS: nome, priorità, dipendenze
                 const wbs = ctx.stages['task-breakdown']?.output ?? '';
-                const taskLines = wbs
-                  .split('\n')
-                  .filter((l) => /^TASK-\d+:/i.test(l.trim()));
+                const tasks = parseWbsTasks(wbs);
 
                 // b) Nome + identifier del progetto dallo scope (stage 2)
                 const scope = ctx.stages['scope-analysis']?.output ?? '';
@@ -130,24 +161,46 @@ export class PmAiService {
                   'plane-setup',
                   onToolEvent,
                 );
-                if (projectRaw.startsWith('Errore:')) throw new Error(projectRaw);
+                if (projectRaw.startsWith('Errore')) throw new Error(projectRaw);
                 const project = JSON.parse(projectRaw) as { id: string; name: string };
 
-                // d) Crea una issue per ogni TASK-N
+                // d) Crea una issue per ogni task con priorità corretta
                 const createIssue = planeToolMap['plane_create_issue'];
+                const taskIdToIssueId = new Map<string, string>();
                 const issues: Array<{ id: string; name: string }> = [];
                 if (createIssue) {
-                  for (const line of taskLines) {
-                    const issueName = line.trim().replace(/^TASK-\d+:\s*/i, '');
+                  for (const task of tasks) {
                     const raw = await callTool(
                       createIssue,
-                      { project_id: project.id, name: issueName, priority: 'medium' },
+                      { project_id: project.id, name: task.name, priority: task.priority },
                       'plane-setup',
                       onToolEvent,
                     );
-                    if (!raw.startsWith('Errore:')) {
+                    if (!raw.startsWith('Errore')) {
                       const issue = JSON.parse(raw) as { id: string; name: string };
+                      taskIdToIssueId.set(task.taskId, issue.id);
                       issues.push({ id: issue.id, name: issue.name });
+                    }
+                  }
+                }
+
+                // e) Crea relazioni "blocked_by" per ogni dipendenza
+                const createRelation = planeToolMap['plane_create_relation'];
+                if (createRelation) {
+                  for (const task of tasks) {
+                    if (task.deps.length === 0) continue;
+                    const issueId = taskIdToIssueId.get(task.taskId);
+                    if (!issueId) continue;
+                    const blockerIds = task.deps
+                      .map((d) => taskIdToIssueId.get(d))
+                      .filter((id): id is string => !!id);
+                    if (blockerIds.length > 0) {
+                      await callTool(
+                        createRelation,
+                        { project_id: project.id, issue_id: issueId, relation_type: 'blocked_by', related_issue_ids: blockerIds },
+                        'plane-setup',
+                        onToolEvent,
+                      );
                     }
                   }
                 }
@@ -159,7 +212,6 @@ export class PmAiService {
                   issues,
                 });
               } catch (e) {
-                // Non blocca la pipeline — restituisce errore serializzato
                 return JSON.stringify({ error: (e as Error).message, project_id: null });
               }
             },
@@ -174,7 +226,6 @@ export class PmAiService {
             name: 'plane-report',
             execute: async (ctx: PipelineContext): Promise<string> => {
               try {
-                // Legge project_id dal JSON deterministico di stage 7
                 const setupData = JSON.parse(ctx.stages['plane-setup']?.output ?? '{}') as {
                   project_id?: string | null;
                   error?: string;
@@ -183,15 +234,20 @@ export class PmAiService {
                   throw new Error(setupData.error ?? 'project_id mancante da plane-setup');
                 }
 
-                const doc = ctx.stages['final-report']?.output ?? '';
-                const html =
-                  '<pre>' +
-                  doc
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .slice(0, 7500) +
-                  '</pre>';
+                const converter = new Showdown.Converter({ tables: true, strikethrough: true, tasklists: true });
+
+                const reportMd = ctx.stages['final-report']?.output ?? '';
+                const reportHtml = converter.makeHtml(reportMd);
+
+                const pdfText = ctx.stages['extract-pdf']?.output ?? '';
+                const pdfSection = pdfText
+                  ? '<hr><h2>Documenti Allegati (testo estratto)</h2>' +
+                    '<pre style="white-space:pre-wrap;font-size:0.85em">' +
+                    pdfText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+                    '</pre>'
+                  : '';
+
+                const html = reportHtml + pdfSection;
 
                 const createPage = planeToolMap['plane_create_page'];
                 if (!createPage) throw new Error('tool plane_create_page non disponibile');
@@ -205,7 +261,7 @@ export class PmAiService {
                   'plane-report',
                   onToolEvent,
                 );
-                if (raw.startsWith('Errore:')) throw new Error(raw);
+                if (raw.startsWith('Errore')) throw new Error(raw);
                 return raw;
               } catch (e) {
                 return JSON.stringify({ error: (e as Error).message, page_id: null });
@@ -250,7 +306,9 @@ export class PmAiService {
           name: 'scope-analysis',
           task: (ctx: PipelineContext): string =>
             "Leggi i seguenti documenti e produci un'analisi dello scope del progetto.\n\n" +
-            'Identifica e descrivi:\n' +
+            'Inizia SEMPRE con questa riga (senza markdown aggiuntivo attorno al nome):\n' +
+            '**Nome Progetto:** <nome breve e chiaro, max 40 caratteri, solo lettere/cifre/spazi/trattini>\n\n' +
+            'Poi identifica e descrivi:\n' +
             '1. **Obiettivo principale** del progetto\n' +
             '2. **Funzionalità richieste** (lista numerata, una per riga)\n' +
             '3. **Stack tecnologico** menzionato o inferibile\n' +
@@ -281,11 +339,12 @@ export class PmAiService {
             return (
               'Basandoti sull\'analisi dello scope e sul documento originale, ' +
               'crea una Work Breakdown Structure (WBS) completa del progetto.\n\n' +
-              'Per ogni task elenca:\n' +
+              'Per ogni task elenca ESATTAMENTE in questo formato:\n' +
               'TASK-N: <nome conciso>\n' +
               '  Descrizione: <cosa va fatto esattamente>\n' +
               '  Dipendenze: <TASK-X, TASK-Y o "nessuna">\n' +
-              '  Categoria: <Frontend | Backend | Database | DevOps | Testing | Design | PM | Altro>\n\n' +
+              '  Categoria: <Frontend | Backend | Database | DevOps | Testing | Design | PM | Altro>\n' +
+              '  Priorità: <Alta | Media | Bassa>\n\n' +
               'Includi TUTTI i task necessari: setup, sviluppo feature, test, deploy, documentazione.\n\n' +
               `ANALISI SCOPE:\n${scope}\n\n` +
               `DOCUMENTO ORIGINALE (riferimento):\n${docText.slice(0, 3000)}…`

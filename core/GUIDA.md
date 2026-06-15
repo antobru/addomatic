@@ -20,6 +20,7 @@ eseguirlo, come estenderlo e cosa serve per portarlo in produzione.
 10. [Estendere il sistema](#10-estendere-il-sistema)
 11. [Verso la produzione](#11-verso-la-produzione)
 12. [Limiti noti](#12-limiti-noti)
+13. [La Pipeline: orchestrazione sequenziale](#13-la-pipeline-orchestrazione-sequenziale)
 
 ---
 
@@ -484,3 +485,203 @@ cui risposte vengono ridotte a una da due strategie di aggregazione complementar
 Il nucleo è piccolo e tipizzato; le estensioni (nuovi tool, nuovi aggregatori,
 worker eterogenei) si innestano senza toccarlo. Parti dalla demo in
 `examples/run-swarm.ts`, poi adatta `SwarmConfig` al tuo caso d'uso.
+
+---
+
+## 13. La Pipeline: orchestrazione sequenziale
+
+Mentre lo Swarm esegue **N agenti in parallelo sullo stesso task**, la `Pipeline`
+esegue **stage diversi in sequenza**: l'output di uno diventa l'input del
+successivo. È il pattern giusto quando il problema richiede fasi eterogenee —
+raccolta requisiti, analisi, sviluppo, validazione, notifica — ciascuna con
+strumenti e costi diversi.
+
+### `PipelineContext`: il filo tra gli stage
+
+Ogni stage riceve un oggetto `PipelineContext`:
+
+```typescript
+interface PipelineContext {
+  originalTask: string;                    // task passato a pipeline.run()
+  stages: Record<string, StageResult>;     // risultati di tutti gli stage precedenti
+  previous: StageResult | null;            // shortcut: ultimo stage eseguito
+}
+```
+
+Grazie a `stages` si può accedere a qualsiasi risultato passato per nome:
+`ctx.stages['requirements'].output`. `ctx.previous` è un comodo alias per
+l'ultimo.
+
+### `TaskResolver`: task statico o dinamico
+
+I tipi di stage che accettano un campo `task` supportano sia stringhe statiche
+sia funzioni che leggono il context:
+
+```typescript
+type TaskResolver = string | ((ctx: PipelineContext) => string);
+
+// Stringa statica
+{ task: 'Analizza il codice' }
+
+// Funzione dinamica: costruisce il task dal risultato dello stage precedente
+{ task: (ctx) => `Dati questi requisiti:\n${ctx.previous!.output}\n\nIdentifica i task tecnici.` }
+```
+
+Se `task` è omesso, la pipeline usa `ctx.previous?.output ?? originalTask`.
+
+### I quattro tipi di stage
+
+| Tipo | Costo LLM | Side-effect | Quando usarlo |
+|------|-----------|-------------|---------------|
+| `swarm` | `N ×` alto | no | massima robustezza, alta varianza nella risposta |
+| `agent` | 1 × medio | no | step singolo con tool use, senza necessità di aggregazione |
+| `transform` | zero | no | formattazione, routing, assemblaggio testo — pura logica |
+| `action` | zero | **sì** | chiamate HTTP, scrittura file, query DB, webhook, notifiche |
+
+#### `swarm`
+```typescript
+{
+  type: 'swarm',
+  name: 'analysis',
+  task: (ctx) => `Analizza: ${ctx.previous!.output}`,
+  swarmConfig: {
+    size: 3,
+    agent: { model: 'claude-haiku-4-5-20251001', maxIterations: 5 },
+    aggregator: new LLMJudgeAggregator(judgeProvider),
+  },
+}
+```
+
+#### `agent`
+```typescript
+{
+  type: 'agent',
+  name: 'validate',
+  task: (ctx) => `Verifica che questi requisiti siano coperti:\n${ctx.stages['requirements'].output}`,
+  agentConfig: { model: 'claude-sonnet-4-6', maxIterations: 10 },
+}
+```
+
+#### `transform`
+```typescript
+{
+  type: 'transform',
+  name: 'publish',
+  transform: (ctx) => {
+    const req = ctx.stages['requirements'].output;
+    const dev = ctx.stages['develop'].output;
+    return `# Documento finale\n\n## Requisiti\n${req}\n\n## Architettura\n${dev}`;
+  },
+}
+```
+
+#### `action`
+
+Lo stage `action` è progettato per codice con side-effect: chiamate a servizi
+terzi, scrittura su database, invio notifiche, esecuzione di comandi. Riceve
+sia il `PipelineContext` che il task risolto come stringa. Supporta un
+`timeout` opzionale in ms.
+
+```typescript
+{
+  type: 'action',
+  name: 'notify_slack',
+  task: (ctx) => ctx.previous!.output,   // testo da inviare
+  timeout: 5000,                         // fallisce se Slack non risponde in 5s
+  execute: async (ctx, resolvedTask) => {
+    const res = await fetch('https://hooks.slack.com/services/XXX/YYY/ZZZ', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: resolvedTask }),
+    });
+    return res.ok ? 'notifica inviata' : `errore HTTP ${res.status}`;
+  },
+}
+```
+
+Altri casi d'uso tipici per `action`:
+
+```typescript
+// Query a un database
+{
+  type: 'action',
+  name: 'save_to_db',
+  execute: async (ctx, task) => {
+    const id = await db.insert('results', { output: ctx.previous!.output });
+    return `salvato con id=${id}`;
+  },
+}
+
+// Chiamata a un'API esterna per arricchire i dati
+{
+  type: 'action',
+  name: 'enrich',
+  task: (ctx) => ctx.stages['analysis'].output,
+  execute: async (_ctx, resolvedTask) => {
+    const data = await myApiClient.enrich(resolvedTask);
+    return JSON.stringify(data);
+  },
+  timeout: 10_000,
+}
+```
+
+> **Differenza con `transform`**: `transform` è pura (nessun I/O, sempre
+> deterministica); `action` segnala esplicitamente side-effect e può fallire
+> per ragioni esterne (rete, quota API, timeout). Usare `action` anche quando
+> tecnicamente basterebbe `transform` aiuta chi legge la pipeline a capire
+> immediatamente dove si trovano i punti di integrazione esterna.
+
+### Gestione degli errori
+
+Se `stopOnFailure: true` (default), la pipeline lancia un'eccezione al primo
+stage fallito. Con `stopOnFailure: false`, lo stage viene marcato come fallito
+(`success: false`) ma la pipeline continua raccogliendo gli altri risultati.
+
+```typescript
+const pipeline = new Pipeline(provider, {
+  stages: [...],
+  stopOnFailure: false,   // continua anche se un'action fallisce
+  onProgress: consolePipelineLogger(),
+});
+```
+
+### Esempio completo con `action`
+
+```typescript
+import { Pipeline, AnthropicProvider, consolePipelineLogger } from './src/index.js';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
+
+const pipeline = new Pipeline(provider, {
+  stages: [
+    {
+      type: 'agent',
+      name: 'draft',
+      task: 'Scrivi un breve riassunto esecutivo del progetto X in 3 punti.',
+      agentConfig: { model: 'claude-haiku-4-5-20251001', maxIterations: 3 },
+    },
+    {
+      type: 'action',
+      name: 'publish',
+      timeout: 8000,
+      execute: async (ctx, task) => {
+        // Esempio: invia il draft a un webhook
+        const body = JSON.stringify({ summary: ctx.previous!.output });
+        const res = await fetch('https://api.myapp.com/summaries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+        return res.ok ? `pubblicato (status ${res.status})` : `fallito (status ${res.status})`;
+      },
+    },
+  ],
+  onProgress: consolePipelineLogger(),
+});
+
+const result = await pipeline.run('progetto X');
+console.log(result.final?.output);  // "pubblicato (status 201)"
+```
+
+Vedi `examples/run-pipeline-dev.ts` per una pipeline complessa a 6 stage che
+combina `agent`, `swarm` e `transform`.

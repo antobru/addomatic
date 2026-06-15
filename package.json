@@ -1,20 +1,15 @@
 {
-  "name": "swarm-agents",
+  "name": "swarn-agent-workspace",
   "version": "1.0.0",
-  "description": "Sistema multi-agente swarm in TypeScript: N agenti indipendenti risolvono lo stesso task, poi un aggregatore seleziona o sintetizza la risposta migliore.",
-  "type": "module",
+  "description": "Monorepo: core (libreria swarm), server (API Express), client (React UI).",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "example": "tsx examples/run-swarm.ts"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.102.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "dev": "npm run dev:server & npm run dev:client",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "install:all": "cd core && npm install && npm run build && cd ../server && npm install && cd ../client && npm install",
+    "build:core": "cd core && npm run build",
+    "typecheck:core": "cd core && npm run typecheck",
+    "typecheck:server": "cd core && npm run build && cd ../server && npm run typecheck"
   }
 }

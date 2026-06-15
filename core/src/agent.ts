@@ -3,7 +3,7 @@
  * --------
  * Un singolo agente autonomo. Esegue il loop ReAct (Reason + Act):
  *
- *   1. chiama il modello con il task e gli strumenti disponibili;
+ *   1. chiama il provider LLM con il task e gli strumenti disponibili;
  *   2. se il modello richiede una tool call, la esegue e ne reinietta il
  *      risultato nella conversazione (observation);
  *   3. ripete finche' il modello produce una risposta testuale finale
@@ -14,16 +14,21 @@
  * riusare la STESSA istanza Agent per tutti i worker dello swarm lanciati in
  * parallelo, senza che le esecuzioni interferiscano tra loro.
  */
-import Anthropic from '@anthropic-ai/sdk';
-import type { AgentConfig, AgentResult, AgentTool, TraceStep } from '../types.js';
+import type { AgentConfig, AgentResult, AgentTool, SwarmProgressEvent, TraceStep } from '../types.js';
+import type {
+  LLMProvider,
+  LLMMessage,
+  LLMTextBlock,
+  LLMToolUseBlock,
+  LLMTool,
+} from './providers/types.js';
 
-const isTextBlock = (b: Anthropic.ContentBlock): b is Anthropic.TextBlock =>
-  b.type === 'text';
-const isToolUseBlock = (b: Anthropic.ContentBlock): b is Anthropic.ToolUseBlock =>
+const isTextBlock = (b: LLMTextBlock | LLMToolUseBlock): b is LLMTextBlock => b.type === 'text';
+const isToolUseBlock = (b: LLMTextBlock | LLMToolUseBlock): b is LLMToolUseBlock =>
   b.type === 'tool_use';
 
 export class Agent {
-  private readonly client: Anthropic;
+  private readonly provider: LLMProvider;
   private readonly model: string;
   private readonly systemPrompt: string;
   private readonly tools: AgentTool[];
@@ -31,8 +36,8 @@ export class Agent {
   private readonly maxTokens: number;
   private readonly maxIterations: number;
 
-  constructor(client: Anthropic, config: AgentConfig) {
-    this.client = client;
+  constructor(provider: LLMProvider, config: AgentConfig) {
+    this.provider = config.provider ?? provider;
     this.model = config.model;
     this.systemPrompt = config.systemPrompt;
     this.tools = config.tools ?? [];
@@ -46,27 +51,39 @@ export class Agent {
    * Non lancia mai: ogni errore viene catturato e riportato in `success/error`,
    * cosi' il fallimento di un agente non fa cadere l'intero swarm.
    */
-  async run(agentId: string, task: string): Promise<AgentResult> {
+  async run(
+    agentId: string,
+    task: string,
+    onProgress?: (event: SwarmProgressEvent) => void,
+  ): Promise<AgentResult> {
     const started = Date.now();
     const trace: TraceStep[] = [];
     let inputTokens = 0;
     let outputTokens = 0;
     let iterations = 0;
 
-    // Lookup veloce dei tool per nome + definizioni nel formato richiesto dall'API.
+    // Lookup veloce dei tool per nome + definizioni nel formato LLM normalizzato.
     const toolMap = new Map(this.tools.map((t) => [t.name, t]));
-    const toolDefs: Anthropic.Tool[] = this.tools.map((t) => ({
+    const toolDefs: LLMTool[] = this.tools.map((t) => ({
       name: t.name,
       description: t.description,
-      input_schema: t.input_schema as Anthropic.Tool.InputSchema,
+      input_schema: t.input_schema,
     }));
 
-    const messages: Anthropic.MessageParam[] = [{ role: 'user', content: task }];
+    const messages: LLMMessage[] = [{ role: 'user', content: task }];
 
     try {
       while (iterations < this.maxIterations) {
         iterations++;
-        const response = await this.callModel(messages, toolDefs);
+        onProgress?.({ type: 'agent_iteration', agentId, iteration: iterations });
+        const response = await this.provider.chat({
+          model: this.model,
+          system: this.systemPrompt,
+          messages,
+          tools: toolDefs,
+          max_tokens: this.maxTokens,
+          temperature: this.temperature,
+        });
         inputTokens += response.usage.input_tokens;
         outputTokens += response.usage.output_tokens;
 
@@ -74,6 +91,10 @@ export class Agent {
         for (const block of response.content) {
           if (isTextBlock(block) && block.text.trim()) {
             trace.push({ iteration: iterations, type: 'thinking', content: block.text });
+            // In modalità verbose emette il ragionamento prima di una tool call.
+            if (response.stop_reason === 'tool_use') {
+              onProgress?.({ type: 'agent_thinking', agentId, iteration: iterations, text: block.text });
+            }
           }
         }
 
@@ -86,6 +107,7 @@ export class Agent {
             .trim();
           trace.push({ iteration: iterations, type: 'final', content: finalText });
           return {
+            model: this.model,
             agentId,
             output: finalText,
             trace,
@@ -101,10 +123,11 @@ export class Agent {
         // Prima si reinserisce il messaggio dell'assistant (contiene i blocchi tool_use).
         messages.push({ role: 'assistant', content: response.content });
 
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }> = [];
         for (const block of response.content) {
           if (!isToolUseBlock(block)) continue;
 
+          onProgress?.({ type: 'agent_tool_call', agentId, iteration: iterations, toolName: block.name, input: block.input as Record<string, unknown> });
           trace.push({
             iteration: iterations,
             type: 'tool_call',
@@ -128,6 +151,7 @@ export class Agent {
             }
           }
 
+          onProgress?.({ type: 'agent_tool_result', agentId, iteration: iterations, toolName: block.name, result: resultText, isError });
           trace.push({
             iteration: iterations,
             type: 'tool_result',
@@ -151,6 +175,7 @@ export class Agent {
       const lastThought =
         [...trace].reverse().find((s) => s.type === 'thinking')?.content ?? '';
       return {
+        model: this.model,
         agentId,
         output: lastThought,
         trace,
@@ -163,6 +188,7 @@ export class Agent {
       };
     } catch (e) {
       return {
+        model: this.model,
         agentId,
         output: '',
         trace,
@@ -173,39 +199,6 @@ export class Agent {
         outputTokens,
         durationMs: Date.now() - started,
       };
-    }
-  }
-
-  /**
-   * Chiamata al modello con retry ed exponential backoff sui soli errori
-   * transitori (429 = rate limit, 5xx = errore server). Gli errori 4xx diversi
-   * dal 429 (es. richiesta malformata) non sono ritentati: fallirebbero di nuovo.
-   */
-  private async callModel(
-    messages: Anthropic.MessageParam[],
-    tools: Anthropic.Tool[],
-    attempt = 0,
-  ): Promise<Anthropic.Message> {
-    const maxAttempts = 4;
-    try {
-      return await this.client.messages.create({
-        model: this.model,
-        max_tokens: this.maxTokens,
-        temperature: this.temperature,
-        system: this.systemPrompt,
-        messages,
-        ...(tools.length > 0 ? { tools } : {}),
-      });
-    } catch (e) {
-      const status = (e as { status?: number }).status;
-      const retriable = status === 429 || (status !== undefined && status >= 500);
-      if (retriable && attempt < maxAttempts) {
-        // Backoff: 1s, 2s, 4s, 8s (+ jitter casuale per evitare il "thundering herd").
-        const delay = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 250;
-        await new Promise((r) => setTimeout(r, delay));
-        return this.callModel(messages, tools, attempt + 1);
-      }
-      throw e;
     }
   }
 }

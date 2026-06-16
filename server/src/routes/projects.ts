@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { PmAiService } from "../services/pm-ai.service.js";
 import { OpenAICompatibleProvider } from "../../../core/src/providers/openai-compat.js";
 import fs from "fs";
+import { PmAiService } from "../services/pm-ai/index.js";
 
 export function createProjectsRouter(): Router {
     const router = Router();
@@ -28,7 +28,7 @@ export function createProjectsRouter(): Router {
             res.status(500).json({ error: String(err) });
         });
     });
-    
+
     // POST /api/projects — crea nuovo progetto
     router.post('/test', async (req, res) => {
         const documents: Buffer[] = [fs.readFileSync('tests\\files\\Analisi_Funzionale_Repricer_MediaWorld_Mirakl.pdf')];

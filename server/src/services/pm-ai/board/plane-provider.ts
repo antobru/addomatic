@@ -1,7 +1,7 @@
 import type { AgentTool } from '@addomatic/core';
 import { planeMcpTools, type PlaneToolsConfig } from '../../../agent-tools/plane/plane-tools.js';
 import { callTool } from '../utils/call-tool.js';
-import { markdownToHtml } from '../utils/markdown.js';
+import Showdown from 'showdown';
 import type { PmAiToolEvent } from '../types.js';
 import type {
   BoardProvider,
@@ -71,7 +71,7 @@ export class PlaneBoardProvider implements BoardProvider {
   }
 
   async createReportPage(project: BoardProjectRef, input: CreateReportInput): Promise<string> {
-    const html = markdownToHtml(input.markdown) + pdfSectionHtml(input.attachmentText);
+    const html = new Showdown.Converter().makeHtml(input.markdown) + pdfSectionHtml(input.attachmentText);
     const raw = await callTool(
       this.tool('plane_create_page'),
       { project_id: project.projectId, name: input.title, description_html: html },

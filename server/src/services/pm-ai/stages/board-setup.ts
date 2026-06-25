@@ -1,5 +1,5 @@
 import type { PipelineContext, StageConfig } from '@addomatic/core';
-import { sleep } from '../utils/sleep.js';
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 import { parseWbsTasks, deriveProjectIdentity } from '../utils/wbs.js';
 import type { BoardProvider } from '../board/index.js';
 

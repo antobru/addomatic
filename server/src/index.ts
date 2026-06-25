@@ -3,10 +3,16 @@ import cors from 'cors';
 import { JsonFileStorage } from './storage/json-files.js';
 import { createPipelinesRouter } from './routes/pipelines.js';
 import { createProjectsRouter } from './routes/projects.js';
+import { SecretsService } from './secrets/index.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const PORT = process.env['PORT'] ? parseInt(process.env['PORT']) : 3001;
+
+const secretsKey = process.env['SECRETS_KEY'];
+if (secretsKey) {
+  SecretsService.init(secretsKey);
+}
 
 const storage = new JsonFileStorage();
 const app = express();

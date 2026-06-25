@@ -1,8 +1,8 @@
 import type { PipelineResult } from '@addomatic/core';
-import type { PlaneToolsConfig } from '../../agent-tools/plane/plane-tools.js';
+import type { BoardConfig } from './board/types.js';
 
 export interface PmAiToolEvent {
-  stage: 'plane-setup' | 'plane-report';
+  stage: 'board-setup' | 'board-report';
   tool: string;
   input: Record<string, unknown>;
   output: string;
@@ -12,11 +12,15 @@ export interface PmAiToolEvent {
 
 export interface PmAiServiceOptions {
   verbose?: boolean;
-  plane?: PlaneToolsConfig;
+  /** Board su cui creare progetto/issue/report. Se assente, le fasi di board vengono saltate. */
+  board?: BoardConfig;
   onToolEvent?: (event: PmAiToolEvent) => void;
 }
 
 export interface PmAiResult {
   pipeline: PipelineResult;
-  planeProjectId?: string;
+  /** ID progetto (Plane) o nome repo (GitHub) creato. */
+  projectId?: string;
 }
+
+export type { BoardConfig } from './board/types.js';

@@ -25,6 +25,7 @@ import {
   calculatorTool,
 } from '@addomatic/core';
 import { planeMcpTools } from './agent-tools/plane/plane-tools.js';
+import { githubMcpTools } from './agent-tools/github/github-tools.js';
 import type {
   SerializablePipeline,
   SerializableStageConfig,
@@ -47,9 +48,22 @@ function buildPlaneToolsRegistry(): Record<string, AgentTool> {
   return Object.fromEntries(tools.map((t) => [t.name, t]));
 }
 
+function buildGithubToolsRegistry(): Record<string, AgentTool> {
+  const token = process.env['GITHUB_TOKEN'];
+  const owner = process.env['GITHUB_OWNER'];
+  if (!token || !owner) return {};
+  const tools = githubMcpTools({
+    token,
+    owner,
+    baseUrl: process.env['GITHUB_API_BASE_URL'],
+  });
+  return Object.fromEntries(tools.map((t) => [t.name, t]));
+}
+
 const TOOL_REGISTRY: Record<string, AgentTool> = {
   calculator: calculatorTool,
   ...buildPlaneToolsRegistry(),
+  ...buildGithubToolsRegistry(),
 };
 
 function resolveTools(names: string[] = []): AgentTool[] {

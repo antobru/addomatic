@@ -1,7 +1,7 @@
 import { Agent, type LLMProvider, type StageConfig } from '@addomatic/core';
 import { createWorkspaceTools } from '../utils/tools.js';
 
-export function analysisStage(provider: LLMProvider): StageConfig {
+export function analysisStage(provider: LLMProvider, model?: string): StageConfig {
   return {
     type: 'action',
     name: 'analysis',
@@ -14,7 +14,7 @@ export function analysisStage(provider: LLMProvider): StageConfig {
         : '';
 
       const agent = new Agent(provider, {
-        model: 'claude-sonnet-4-6',
+        model: model ?? 'claude-sonnet-4-6',
         systemPrompt: `You are a senior tech lead with 15+ years of experience analyzing codebases and planning implementations.
 
 Your job is to:

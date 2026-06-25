@@ -2,7 +2,7 @@ import { Agent, type LLMProvider, type StageConfig } from '@addomatic/core';
 import { enableNetwork, disableNetwork } from '../utils/docker.js';
 import { stageAndCommit, pushBranch } from '../utils/git.js';
 
-export function commitPushStage(provider: LLMProvider): StageConfig {
+export function commitPushStage(provider: LLMProvider, model?: string): StageConfig {
   return {
     type: 'action',
     name: 'commit-push',
@@ -10,7 +10,7 @@ export function commitPushStage(provider: LLMProvider): StageConfig {
       const containerId = ctx.vars['containerId']!;
       const branchName = ctx.vars['branchName']!;
 
-      const commitMessage = await generateCommitMessage(provider, ctx.originalTask);
+      const commitMessage = await generateCommitMessage(provider, ctx.originalTask, model);
       const commitHash = await stageAndCommit(containerId, commitMessage);
 
       await enableNetwork(containerId);
@@ -25,9 +25,9 @@ export function commitPushStage(provider: LLMProvider): StageConfig {
   };
 }
 
-async function generateCommitMessage(provider: LLMProvider, task: string): Promise<string> {
+async function generateCommitMessage(provider: LLMProvider, task: string, model?: string): Promise<string> {
   const agent = new Agent(provider, {
-    model: 'claude-sonnet-4-6',
+    model: model ?? 'claude-sonnet-4-6',
     systemPrompt: [
       'Generate a concise conventional commit message.',
       'Format: type(scope): short description',

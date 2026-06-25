@@ -1,14 +1,35 @@
-import { Pipeline, consolePipelineLogger, type LLMProvider } from '@addomatic/core';
-import type { DevAiTask, DevAiResult, DevAiServiceOptions } from './types.js';
-import { analysisStage } from './stages/analysis.js';
-import { implementStage } from './stages/implement.js';
-import { reviewStage } from './stages/review.js';
-import { commitPushStage } from './stages/commit-push.js';
-import { prCreationStage } from './stages/pr-creation.js';
-import { createWorkspace, removeWorkspace, detectLanguageFromHost, generateTaskId } from './utils/workspace.js';
-import { startContainer, stopAndRemoveContainer, disableNetwork, pullImage, dockerExec } from './utils/docker.js';
-import { cloneRepoOnHost, configureGitUser, createBranch, generateBranchName } from './utils/git.js';
-import { safeParseObj } from './utils/parse.js';
+import {
+  Pipeline,
+  consolePipelineLogger,
+  type LLMProvider,
+} from "@addomatic/core";
+import type { DevAiTask, DevAiResult, DevAiServiceOptions } from "./types.js";
+import { analysisStage } from "./stages/analysis.js";
+import { implementStage } from "./stages/implement.js";
+import { reviewStage } from "./stages/review.js";
+import { commitPushStage } from "./stages/commit-push.js";
+import { prCreationStage } from "./stages/pr-creation.js";
+import {
+  createWorkspace,
+  removeWorkspace,
+  detectLanguageFromHost,
+  generateTaskId,
+} from "./utils/workspace.js";
+import {
+  startContainer,
+  stopAndRemoveContainer,
+  disableNetwork,
+  pullImage,
+  dockerExec,
+} from "./utils/docker.js";
+import {
+  cloneRepoOnHost,
+  installGit,
+  configureGitUser,
+  createBranch,
+  generateBranchName,
+} from "./utils/git.js";
+import { safeParseObj } from "./utils/parse.js";
 
 export class DevAiService {
   constructor(
@@ -25,12 +46,15 @@ export class DevAiService {
     const taskId = generateTaskId();
     const containerId = `dev-ai-${taskId}`;
     const branchName = generateBranchName(task.title);
-    const baseBranch = task.repo.baseBranch ?? 'main';
-    const maxRetries = task.verification?.maxRetries ?? this.options?.maxImplementationRetries ?? 3;
+    const baseBranch = task.repo.baseBranch ?? "main";
+    const maxRetries =
+      task.verification?.maxRetries ??
+      this.options?.maxImplementationRetries ??
+      3;
     const reviewerCount = this.options?.reviewerCount ?? 3;
     const dockerOpts = {
-      memory: this.options?.docker?.memory ?? '2g',
-      cpus: this.options?.docker?.cpus ?? '2.0',
+      memory: this.options?.docker?.memory ?? "2g",
+      cpus: this.options?.docker?.cpus ?? "2.0",
     };
 
     let workspacePath: string | undefined;
@@ -44,9 +68,17 @@ export class DevAiService {
       const profile = await detectLanguageFromHost(workspacePath);
       await pullImage(profile.dockerImage);
 
-      const sshKeyPath = task.repo.auth.type === 'ssh' ? task.repo.auth.keyPath : undefined;
-      await startContainer(profile.dockerImage, workspacePath, containerId, dockerOpts, sshKeyPath);
+      const sshKeyPath =
+        task.repo.auth.type === "ssh" ? task.repo.auth.keyPath : undefined;
+      await startContainer(
+        profile.dockerImage,
+        workspacePath,
+        containerId,
+        dockerOpts,
+        sshKeyPath,
+      );
 
+      await installGit(containerId);
       await configureGitUser(containerId);
       await createBranch(containerId, branchName);
 
@@ -68,11 +100,11 @@ export class DevAiService {
         stopOnFailure: true,
         onProgress: consolePipelineLogger({ verbose: !!this.options?.verbose }),
         stages: [
-          analysisStage(this.llms.analysis),
-          implementStage(this.llms.implementation, task, maxRetries),
-          reviewStage(this.llms.review, this.llms.judge, task, reviewerCount),
-          commitPushStage(this.llms.analysis),
-          prCreationStage(this.llms.analysis, task),
+          analysisStage(this.llms.analysis, 'gpt-4o'),
+          implementStage(this.llms.implementation, task, maxRetries, 'gpt-5.5'),
+          reviewStage(this.llms.review, this.llms.judge, task, reviewerCount, 'gpt-5.5'),
+          commitPushStage(this.llms.analysis, 'gpt-4o'),
+          prCreationStage(this.llms.analysis, task, 'gpt-4o'),
         ],
       });
 
@@ -83,32 +115,46 @@ export class DevAiService {
         branchName,
         baseBranch,
         dockerImage: profile.dockerImage,
-        targetFiles: task.targetFiles?.join(', ') ?? '',
+        targetFiles: task.targetFiles?.join(", ") ?? "",
       });
 
       // ── Extract result fields ─────────────────────────────────────────────
       const result: DevAiResult = { pipeline: pipelineResult };
 
-      const commitData = safeParseObj(getStageOutput(pipelineResult.stages, 'commit-push'));
+      const commitData = safeParseObj(
+        getStageOutput(pipelineResult.stages, "commit-push"),
+      );
       if (commitData) {
-        result.commitHash = commitData['commitHash'] as string | undefined;
-        result.branchName = commitData['pushedBranch'] as string | undefined;
+        result.commitHash = commitData["commitHash"] as string | undefined;
+        result.branchName = commitData["pushedBranch"] as string | undefined;
       }
 
-      const prData = safeParseObj(getStageOutput(pipelineResult.stages, 'pr-creation'));
+      const prData = safeParseObj(
+        getStageOutput(pipelineResult.stages, "pr-creation"),
+      );
       if (prData) {
-        result.prUrl = (prData['prUrl'] as string | null) ?? undefined;
-        result.isDraft = prData['isDraft'] as boolean | undefined;
+        result.prUrl = (prData["prUrl"] as string | null) ?? undefined;
+        result.isDraft = prData["isDraft"] as boolean | undefined;
       }
 
-      const reviewData = safeParseObj(getStageOutput(pipelineResult.stages, 'review'));
-      if (reviewData) result.reviewReport = reviewData['report'] as string | undefined;
+      const reviewData = safeParseObj(
+        getStageOutput(pipelineResult.stages, "review"),
+      );
+      if (reviewData)
+        result.reviewReport = reviewData["report"] as string | undefined;
 
-      const implData = safeParseObj(getStageOutput(pipelineResult.stages, 'implement'));
-      if (implData) result.implementationAttempts = implData['attemptsUsed'] as number | undefined;
+      const implData = safeParseObj(
+        getStageOutput(pipelineResult.stages, "implement"),
+      );
+      if (implData)
+        result.implementationAttempts = implData["attemptsUsed"] as
+          | number
+          | undefined;
 
       return result;
-
+    } catch (err) {
+      console.error("DevAiService.runTask error:", err);
+      throw err;
     } finally {
       // Cleanup always runs — even on pipeline failure
       await stopAndRemoveContainer(containerId).catch(() => {});
@@ -120,9 +166,11 @@ export class DevAiService {
 function buildOriginalTask(task: DevAiTask): string {
   const parts = [`Title: ${task.title}`, `\nDescription: ${task.description}`];
   if (task.acceptanceCriteria?.length) {
-    parts.push(`\nAcceptance Criteria:\n${task.acceptanceCriteria.map((c) => `- ${c}`).join('\n')}`);
+    parts.push(
+      `\nAcceptance Criteria:\n${task.acceptanceCriteria.map((c) => `- ${c}`).join("\n")}`,
+    );
   }
-  return parts.join('');
+  return parts.join("");
 }
 
 function getStageOutput(
@@ -131,4 +179,3 @@ function getStageOutput(
 ): string | undefined {
   return stages.find((s) => s.stageName === name)?.output;
 }
-

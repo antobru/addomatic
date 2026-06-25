@@ -69,9 +69,11 @@ export async function stopAndRemoveContainer(containerId: string): Promise<void>
   await runProcess(['docker', 'rm', containerId], { timeoutMs: 15_000 });
 }
 
-export async function pullImage(image: string): Promise<void> {
-  const result = await runProcess(['docker', 'pull', image], { timeoutMs: 300_000 });
-  if (result.exitCode !== 0) {
-    throw new Error(`docker pull "${image}" failed: ${result.stderr}`);
+export async function pullImage(image: string, retries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const result = await runProcess(['docker', 'pull', image], { timeoutMs: 300_000 });
+    if (result.exitCode === 0) return;
+    if (attempt === retries) throw new Error(`docker pull "${image}" failed: ${result.stderr}`);
+    await new Promise((r) => setTimeout(r, 5_000 * attempt));
   }
 }

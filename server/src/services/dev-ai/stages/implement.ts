@@ -13,6 +13,7 @@ export function implementStage(
   provider: LLMProvider,
   task: DevAiTask,
   maxRetries: number,
+  model?: string
 ): StageConfig {
   return {
     type: 'action',
@@ -30,10 +31,9 @@ export function implementStage(
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const tools = createWorkspaceTools(workspacePath);
         const agent = new Agent(provider, {
-          model: 'claude-opus-4-8',
+          model: model ?? 'claude-opus-4-8',
           systemPrompt: buildSystemPrompt(attempt > 1),
           tools,
-          temperature: 0.1,
           maxTokens: 8192,
           maxIterations: 20,
         });

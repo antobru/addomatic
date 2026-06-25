@@ -54,6 +54,13 @@ export async function cloneRepoOnHost(
   }
 }
 
+export async function installGit(containerId: string): Promise<void> {
+  const result = await dockerExec(containerId, 'git --version || (apt-get update -qq && apt-get install -y -qq git)');
+  if (result.exitCode !== 0) {
+    throw new Error(`git install failed: ${result.stderr}`);
+  }
+}
+
 export async function configureGitUser(containerId: string): Promise<void> {
   await dockerExec(containerId, 'git -C /workspace config user.email "dev-ai@swarn-agent.local"');
   await dockerExec(containerId, 'git -C /workspace config user.name "Dev AI"');

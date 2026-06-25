@@ -3,7 +3,7 @@ import { createPullRequest } from '../utils/pr.js';
 import type { DevAiTask } from '../types.js';
 import { safeParseObj } from '../utils/parse.js';
 
-export function prCreationStage(provider: LLMProvider, task: DevAiTask): StageConfig {
+export function prCreationStage(provider: LLMProvider, task: DevAiTask, model?: string): StageConfig {
   return {
     type: 'action',
     name: 'pr-creation',
@@ -11,8 +11,11 @@ export function prCreationStage(provider: LLMProvider, task: DevAiTask): StageCo
       const branchName = ctx.vars['branchName']!;
       const baseBranch = ctx.vars['baseBranch']!;
 
-      if (!task.repo.apiToken) {
-        return JSON.stringify({ prUrl: null, prId: null, skipped: true, reason: 'No apiToken provided' });
+      const apiToken =
+        task.repo.apiToken ??
+        (task.repo.auth.type === 'pat' ? task.repo.auth.token : undefined);
+      if (!apiToken) {
+        return JSON.stringify({ prUrl: null, prId: null, skipped: true, reason: 'No apiToken — provide repo.apiToken or use PAT auth' });
       }
 
       const reviewOutput = safeParseObj(ctx.stages['review']?.output ?? '{}');
@@ -33,7 +36,7 @@ export function prCreationStage(provider: LLMProvider, task: DevAiTask): StageCo
 
       const result = await createPullRequest({
         platform: task.repo.platform,
-        apiToken: task.repo.apiToken,
+        apiToken,
         apiBaseUrl: task.repo.apiBaseUrl,
         repoUrl: task.repo.url,
         branchName,
@@ -62,11 +65,11 @@ interface PRBodyContext {
   hasCritical: boolean;
 }
 
-async function generatePRBody(provider: LLMProvider, ctx: PRBodyContext): Promise<string> {
+async function generatePRBody(provider: LLMProvider, ctx: PRBodyContext, model?: string): Promise<string> {
   const { task, analysisOutput, implOutput, reviewOutput, commitOutput, hasCritical } = ctx;
 
   const agent = new Agent(provider, {
-    model: 'claude-sonnet-4-6',
+    model: model ?? 'claude-sonnet-4-6',
     systemPrompt: 'Generate a well-structured GitHub Pull Request description in Markdown. Be concise and informative.',
     temperature: 0.2,
     maxTokens: 2048,

@@ -17,6 +17,7 @@ export function reviewStage(
   judgeProvider: LLMProvider,
   task: DevAiTask,
   reviewerCount: number,
+  model?: string,
 ): StageConfig {
   return {
     type: 'action',
@@ -41,7 +42,7 @@ export function reviewStage(
       // One retry: re-implement to fix critical issues, then re-review
       const tools = createWorkspaceTools(workspacePath);
       const fixAgent = new Agent(reviewProvider, {
-        model: 'claude-opus-4-8',
+        model: model ?? 'claude-opus-4-8',
         systemPrompt: [
           'You are an expert senior software developer fixing CRITICAL issues found during code review.',
           'Read the relevant files, then apply ONLY the targeted fixes listed in the review.',
@@ -90,9 +91,10 @@ async function runSwarmReview(
   reviewProvider: LLMProvider,
   judgeProvider: LLMProvider,
   count: number,
+  model?: string,
 ): Promise<string> {
   const agentConfig = {
-    model: 'claude-sonnet-4-6',
+    model: model ?? 'claude-sonnet-4-6',
     systemPrompt: [
       'You are a meticulous senior code reviewer.',
       'Review code changes for correctness, security, performance, and code quality.',
@@ -121,7 +123,7 @@ async function runSwarmReview(
   if (successful.length === 1) return successful[0]!.output;
 
   const aggregator = new LLMJudgeAggregator(judgeProvider, {
-    model: 'claude-opus-4-8',
+    model: model ?? 'claude-opus-4-8',
     synthesize: true,
     maxTokens: 2048,
   });

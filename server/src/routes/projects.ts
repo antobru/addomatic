@@ -4,6 +4,8 @@ import { PmAiService } from "../services/pm-ai/index.js";
 import type { BoardConfig } from "../services/pm-ai/types.js";
 import { DevAiService } from "../services/dev-ai/service.js";
 import { DevAiTask } from "../services/dev-ai/index.js";
+import { SecretsService } from "../secrets/service.js";
+import fs from "fs";
 
 /** Seleziona il board provider da env. PM_BOARD_PROVIDER=plane|github (default: plane). */
 function boardConfigFromEnv(): BoardConfig | undefined {
@@ -61,9 +63,11 @@ export function createProjectsRouter(): Router {
   );
 
   router.post("/", async (req, res) => {
-    const documents: Buffer[] = req.body.documents.map((doc: string) =>
-      Buffer.from(doc, "base64"),
-    );
+    // const documents: Buffer[] = req.body.documents.map((doc: string) =>
+    //   Buffer.from(doc, "base64"),
+    // );
+
+    const documents: Buffer[] = [fs.readFileSync("/Users/antonio/Documents/workspace/personal/addomatic/server/tests/files/Analisi_Funzionale_Repricer_MediaWorld_Mirakl.pdf")];
     pmAiService
       .createProject(documents)
       .then((result) => {
@@ -75,7 +79,19 @@ export function createProjectsRouter(): Router {
   });
 
   router.post("/:id/tasks/:taskId", async (req, res) => {
-    const task: DevAiTask = req.body;
+    const token = SecretsService.get().require("antobru/test:pat");
+    const repoUrl = SecretsService.get().require("antobru/test:repo-url");
+    const task: DevAiTask = {
+      description:
+        "Implementare la funzionalità di login per l'applicazione, consentendo agli utenti di autenticarsi utilizzando le proprie credenziali. La pagina di login deve essere sicura, user-friendly e compatibile con i principali browser.",
+      title: "Aggiungere una pagina di login all'applicazione",
+      repo: {
+        auth: { type: "pat", token },
+        platform: "github",
+        url: repoUrl,
+        baseBranch: "main",
+      },
+    };
     devAiService
       .runTask(task)
       .then((result) => {

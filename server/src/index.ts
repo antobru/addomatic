@@ -3,6 +3,7 @@ import cors from 'cors';
 import { JsonFileStorage } from './storage/json-files.js';
 import { createPipelinesRouter } from './routes/pipelines.js';
 import { createProjectsRouter } from './routes/projects.js';
+import { createSecretsRouter } from './routes/secrets.js';
 import { SecretsService } from './secrets/index.js';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -22,6 +23,7 @@ app.use(express.json());
 
 app.use('/api/pipelines', createPipelinesRouter(storage));
 app.use('/api/projects', createProjectsRouter());
+app.use('/api/secrets', createSecretsRouter());
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

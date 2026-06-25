@@ -4,7 +4,10 @@ import { PipelineList } from './components/PipelineList.js';
 import { PipelineCanvas } from './components/PipelineCanvas.js';
 import { StagePanel } from './components/StagePanel.js';
 import { VarsEditor } from './components/VarsEditor.js';
+import { SecretsPage } from './components/SecretsPage.js';
 import type { RunEvent } from './types.js';
+
+type View = 'pipelines' | 'secrets';
 
 // ── Run log ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +92,7 @@ export function App() {
     clearLogs,
   } = usePipeline();
 
+  const [view, setView] = useState<View>('pipelines');
   const [runTask, setRunTask] = useState('');
   const [showRunModal, setShowRunModal] = useState(false);
   const [showVarsEditor, setShowVarsEditor] = useState(false);
@@ -130,8 +134,25 @@ export function App() {
           </div>
         </div>
 
+        {/* Nav tabs */}
+        <div className="flex items-center gap-0.5 px-1">
+          {(['pipelines', 'secrets'] as View[]).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all capitalize ${
+                view === v
+                  ? 'bg-zinc-800 text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {v === 'pipelines' ? 'Pipelines' : '🔑 Secrets'}
+            </button>
+          ))}
+        </div>
+
         {/* Pipeline name */}
-        {current ? (
+        {view === 'pipelines' && current ? (
           <div className="flex items-center gap-2.5 min-w-0">
             <input
               value={current.name}
@@ -146,14 +167,14 @@ export function App() {
               />
             )}
           </div>
-        ) : (
+        ) : view === 'pipelines' ? (
           <span className="text-zinc-600 text-sm">Seleziona o crea una pipeline</span>
-        )}
+        ) : null}
 
         <div className="flex-1" />
 
         {/* Actions */}
-        {current && (
+        {view === 'pipelines' && current && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowVarsEditor((v) => !v)}
@@ -200,6 +221,12 @@ export function App() {
           </div>
         )}
       </header>
+
+      {/* ── Secrets view ── */}
+      {view === 'secrets' && <SecretsPage />}
+
+      {/* ── Pipelines view ── */}
+      {view === 'pipelines' && <>
 
       {/* ── Vars editor dropdown ── */}
       {showVarsEditor && current && (
@@ -345,6 +372,8 @@ export function App() {
           </div>
         </div>
       )}
+
+      </>}
     </div>
   );
 }

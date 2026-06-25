@@ -28,6 +28,21 @@ export class SecretsService {
     return this.store.get(key) ?? process.env[envVar];
   }
 
+  /** Management — returns all key names, never values. */
+  list(): string[] {
+    return this.store.list();
+  }
+
+  /** Management — store or overwrite a secret. */
+  set(key: string, value: string): void {
+    this.store.set(key, value);
+  }
+
+  /** Management — delete a secret. Returns false if not found. */
+  delete(key: string): boolean {
+    return this.store.delete(key);
+  }
+
   static init(masterKey: string): SecretsService {
     if (instance) return instance;
     instance = new SecretsService(new SecretsStore(masterKey));

@@ -2,11 +2,11 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { Pipeline } from '@addomatic/core';
 import type { PipelineProgressEvent } from '@addomatic/core';
-import type { PipelineStorage } from '../storage/interface.js';
 import type { SerializablePipeline } from '../types.js';
+import { JsonFileStorage } from '../storage/json-files.js';
 import { buildPipelineConfig, createDefaultProvider, mergeVars } from '../runner.js';
 
-export function createPipelinesRouter(storage: PipelineStorage): Router {
+export function createPipelinesRouter(storage: JsonFileStorage): Router {
   const router = Router();
 
   // GET /api/pipelines — lista summaries

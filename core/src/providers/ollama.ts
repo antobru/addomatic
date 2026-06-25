@@ -10,20 +10,23 @@
  *   - Modello scaricato: ollama pull llama3.1
  *
  * Uso:
- *   const provider = new OllamaProvider();
- *   // oppure con endpoint e modello custom:
- *   const provider = new OllamaProvider('http://mio-server:11434');
+ *   const provider = ollamaProvider();
+ *   // oppure con endpoint custom:
+ *   const provider = ollamaProvider('http://mio-server:11434');
  */
 import { OpenAICompatibleProvider } from './openai-compat.js';
+import type { LLMProvider } from './types.js';
 
+export function ollamaProvider(baseURL = 'http://localhost:11434/v1'): LLMProvider {
+  return new OpenAICompatibleProvider({
+    baseURL,
+    apiKey: 'ollama', // Ollama ignores the key, but fetch includes it anyway
+  });
+}
+
+/** @deprecated Use ollamaProvider() factory function instead */
 export class OllamaProvider extends OpenAICompatibleProvider {
-  /**
-   * @param baseURL  URL di Ollama (default: http://localhost:11434/v1)
-   */
   constructor(baseURL = 'http://localhost:11434/v1') {
-    super({
-      baseURL,
-      apiKey: 'ollama', // Ollama ignora la chiave, ma fetch la include lo stesso
-    });
+    super({ baseURL, apiKey: 'ollama' });
   }
 }

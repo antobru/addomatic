@@ -1,5 +1,6 @@
-import { PlaneClient, PlaneError } from '@makeplane/plane-node-sdk';
+import { PlaneClient } from '@makeplane/plane-node-sdk';
 import type { AgentTool } from '@addomatic/core';
+import { ok, err } from '../utils.js';
 
 export interface PlaneToolsConfig {
   workspaceSlug: string;
@@ -36,20 +37,6 @@ export function planeMcpTools(config: PlaneToolsConfig): AgentTool[] {
     planeAddIssuesToCycleTool(client, ws),
     planeCreateRelationTool(client, ws),
   ];
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function ok(data: unknown): string {
-  return JSON.stringify(data, null, 2);
-}
-
-function err(e: unknown): string {
-  if (e instanceof PlaneError) {
-    const detail = e.response ? ` — ${JSON.stringify(e.response)}` : '';
-    return `Errore ${e.statusCode}: ${e.message}${detail}`;
-  }
-  return `Errore: ${e instanceof Error ? e.message : String(e)}`;
 }
 
 // ── Projects ──────────────────────────────────────────────────────────────────

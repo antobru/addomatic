@@ -22,7 +22,7 @@
  *   - phi4: Microsoft, buono su ragionamento matematico
  */
 import {
-  OllamaProvider,
+  ollamaProvider,
   Swarm,
   MajorityVoteAggregator,
   LLMJudgeAggregator,
@@ -37,7 +37,7 @@ const OLLAMA_URL = process.env['OLLAMA_URL'] ?? 'http://localhost:11434/v1';
 
 console.log(`Provider: Ollama  |  Modello: ${OLLAMA_MODEL}  |  URL: ${OLLAMA_URL}`);
 
-const provider = new OllamaProvider(OLLAMA_URL);
+const provider = ollamaProvider(OLLAMA_URL);
 
 function report(title: string, result: SwarmResult): void {
   console.log(`\n=== ${title} ===`);

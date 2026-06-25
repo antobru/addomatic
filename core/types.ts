@@ -170,7 +170,7 @@ type SwarmConfigBase = {
  * { workers: [
  *     { id: 'opus',   agent: { model: 'claude-opus-4-8', temperature: 0.2, ... } },
  *     { id: 'haiku',  agent: { model: 'claude-haiku-4-5', temperature: 0.9, ... } },
- *     { id: 'local',  agent: { model: 'llama3.1', ... }, provider: new OllamaProvider() },
+ *     { id: 'local',  agent: { model: 'llama3.1', ... }, provider: ollamaProvider() },
  *   ], aggregator: ...
  * }
  * ```

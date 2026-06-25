@@ -8,6 +8,7 @@ import { prCreationStage } from './stages/pr-creation.js';
 import { createWorkspace, removeWorkspace, detectLanguageFromHost, generateTaskId } from './utils/workspace.js';
 import { startContainer, stopAndRemoveContainer, disableNetwork, pullImage, dockerExec } from './utils/docker.js';
 import { cloneRepoOnHost, configureGitUser, createBranch, generateBranchName } from './utils/git.js';
+import { safeParseObj } from './utils/parse.js';
 
 export class DevAiService {
   constructor(
@@ -131,8 +132,3 @@ function getStageOutput(
   return stages.find((s) => s.stageName === name)?.output;
 }
 
-function safeParseObj(raw: string | undefined): Record<string, unknown> | null {
-  if (!raw) return null;
-  try { return JSON.parse(raw) as Record<string, unknown>; }
-  catch { return null; }
-}

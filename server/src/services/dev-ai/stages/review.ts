@@ -3,6 +3,7 @@ import { getGitDiff } from '../utils/git.js';
 import { createWorkspaceTools } from '../utils/tools.js';
 import { dockerExec } from '../utils/docker.js';
 import type { DevAiTask } from '../types.js';
+import { safeParseObj } from '../utils/parse.js';
 
 interface ReviewOutput {
   passed: boolean;
@@ -157,7 +158,3 @@ function buildReviewTask(
   ].join('\n');
 }
 
-function safeParseObj(raw: string): Record<string, unknown> | null {
-  try { return JSON.parse(raw) as Record<string, unknown>; }
-  catch { return null; }
-}

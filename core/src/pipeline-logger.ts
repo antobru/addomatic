@@ -15,21 +15,7 @@
  */
 import type { PipelineProgressEvent, SwarmProgressEvent } from '../types.js';
 import { consoleSwarmLogger, type ConsoleSwarmLoggerOptions } from './logger.js';
-
-// ── ANSI ──────────────────────────────────────────────────────────────────────
-const R       = '\x1b[0m';
-const B       = '\x1b[1m';
-const D       = '\x1b[2m';
-const RED     = '\x1b[31m';
-const GREEN   = '\x1b[32m';
-const YELLOW  = '\x1b[33m';
-const BLUE    = '\x1b[34m';
-const CYAN    = '\x1b[36m';
-const GRAY    = '\x1b[90m';
-
-function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;]*m/g, '');
-}
+import { R, B, D, RED, GREEN, YELLOW, BLUE, CYAN, GRAY, stripAnsi } from './ansi.js';
 
 // ── Opzioni pubbliche ─────────────────────────────────────────────────────────
 

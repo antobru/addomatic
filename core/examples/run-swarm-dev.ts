@@ -29,15 +29,15 @@ import {
   graphifyReportTool,
   consoleSwarmLogger,
   type SwarmResult,
-  OllamaProvider,
+  ollamaProvider,
 } from '../src/index.js';
 
 const CODEBASE_DIR = process.env['CODEBASE_DIR'] ?? '.';
 
-const provider = new OllamaProvider();
+const provider = ollamaProvider();
 
 console.log(`Codebase analizzata: ${CODEBASE_DIR}`);
-console.log(`Provider: ${provider.constructor.name.replace('Provider', '')}\n`);
+console.log(`Provider: Ollama\n`);
 
 
 function report(title: string, result: SwarmResult): void {

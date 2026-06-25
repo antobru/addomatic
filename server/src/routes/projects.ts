@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { OpenAICompatibleProvider } from "../../../core/src/providers/openai-compat.js";
-import fs from "fs";
 import { PmAiService } from "../services/pm-ai/index.js";
 import type { BoardConfig } from "../services/pm-ai/types.js";
 import { DevAiService } from "../services/dev-ai/service.js";
@@ -61,7 +60,6 @@ export function createProjectsRouter(): Router {
     {},
   );
 
-  // POST /api/projects — crea nuovo progetto
   router.post("/", async (req, res) => {
     const documents: Buffer[] = req.body.documents.map((doc: string) =>
       Buffer.from(doc, "base64"),
@@ -76,7 +74,6 @@ export function createProjectsRouter(): Router {
       });
   });
 
-  // POST /api/projects — crea nuovo progetto
   router.post("/:id/tasks/:taskId", async (req, res) => {
     const task: DevAiTask = req.body;
     devAiService
@@ -89,21 +86,5 @@ export function createProjectsRouter(): Router {
       });
   });
 
-  // POST /api/projects — crea nuovo progetto
-  router.post("/test", async (req, res) => {
-    const documents: Buffer[] = [
-      fs.readFileSync(
-        "tests\\files\\Analisi_Funzionale_Repricer_MediaWorld_Mirakl.pdf",
-      ),
-    ];
-    pmAiService
-      .createProject(documents)
-      .then((result) => {
-        res.status(200).json(result);
-      })
-      .catch((err) => {
-        res.status(500).json({ error: String(err) });
-      });
-  });
   return router;
 }

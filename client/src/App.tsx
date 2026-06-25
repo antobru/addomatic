@@ -86,16 +86,15 @@ export function App() {
     reorderStages,
     setSelectedStageId,
     runPipeline,
+    clearLogs,
   } = usePipeline();
 
   const [runTask, setRunTask] = useState('');
   const [showRunModal, setShowRunModal] = useState(false);
   const [showVarsEditor, setShowVarsEditor] = useState(false);
   const [runVars, setRunVars] = useState<Record<string, string>>({});
-  const [logs, setLogs] = useState<RunEvent[]>([]);
 
   useEffect(() => { loadList(); }, [loadList]);
-  useEffect(() => { if (runLogs.length) setLogs(runLogs); }, [runLogs]);
 
   const selectedStage = current?.stages.find((s) => s.id === selectedStageId) ?? null;
 
@@ -264,7 +263,7 @@ export function App() {
       </div>
 
       {/* ── Run log ── */}
-      <RunLog logs={logs} onClear={() => setLogs([])} />
+      <RunLog logs={runLogs} onClear={clearLogs} />
 
       {/* ── Run modal ── */}
       {showRunModal && (

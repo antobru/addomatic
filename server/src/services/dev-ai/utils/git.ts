@@ -1,40 +1,6 @@
-import { spawn } from 'node:child_process';
 import type { DevAiAuth } from '../types.js';
+import { runProcess } from './process.js';
 import { dockerExec } from './docker.js';
-
-interface SpawnResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
-
-function runOnHost(
-  args: string[],
-  opts: { env?: NodeJS.ProcessEnv; timeoutMs?: number } = {},
-): Promise<SpawnResult> {
-  return new Promise((resolve) => {
-    const [cmd, ...rest] = args as [string, ...string[]];
-    const proc = spawn(cmd, rest, {
-      env: opts.env ?? process.env,
-      timeout: opts.timeoutMs,
-    });
-    const outBufs: Buffer[] = [];
-    const errBufs: Buffer[] = [];
-
-    proc.stdout.on('data', (d: Buffer) => outBufs.push(d));
-    proc.stderr.on('data', (d: Buffer) => errBufs.push(d));
-
-    proc.on('close', (code) => {
-      resolve({
-        stdout: Buffer.concat(outBufs).toString('utf-8'),
-        stderr: Buffer.concat(errBufs).toString('utf-8'),
-        exitCode: code ?? 1,
-      });
-    });
-
-    proc.on('error', (err) => resolve({ stdout: '', stderr: err.message, exitCode: 1 }));
-  });
-}
 
 export function buildCloneUrl(url: string, auth: DevAiAuth): string {
   if (auth.type === 'ssh') return url;
@@ -78,7 +44,7 @@ export async function cloneRepoOnHost(
     env['GIT_SSH_COMMAND'] = `ssh -i ${auth.keyPath} -o StrictHostKeyChecking=no -o BatchMode=yes`;
   }
 
-  const result = await runOnHost(
+  const result = await runProcess(
     ['git', 'clone', '--depth=1', cloneUrl, targetPath],
     { env, timeoutMs: 180_000 },
   );

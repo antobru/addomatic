@@ -1,13 +1,12 @@
 import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { PipelineStorage } from './interface.js';
 import type { SerializablePipeline, PipelineSummary } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_DATA_DIR = join(__dirname, '../data');
 
-export class JsonFileStorage implements PipelineStorage {
+export class JsonFileStorage {
   constructor(private readonly dataDir = DEFAULT_DATA_DIR) {}
 
   private filePath(id: string): string {

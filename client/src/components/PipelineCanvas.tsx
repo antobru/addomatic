@@ -15,15 +15,9 @@ import '@xyflow/react/dist/style.css';
 import { StageNode } from './StageNode.js';
 import type { SerializableStageConfig, StageType } from '../types.js';
 import type { StageNodeData } from './StageNode.js';
+import { STAGE_TYPE_CONFIG } from './stage-config.js';
 
 const NODE_TYPES = { stageNode: StageNode };
-
-const TYPE_CONFIG: Record<StageType, { color: string; bg: string; border: string; label: string }> = {
-  swarm: { color: 'text-violet-400', bg: 'bg-violet-500/10 hover:bg-violet-500/20', border: 'border-violet-500/40 hover:border-violet-500/70', label: 'Swarm' },
-  agent: { color: 'text-sky-400', bg: 'bg-sky-500/10 hover:bg-sky-500/20', border: 'border-sky-500/40 hover:border-sky-500/70', label: 'Agent' },
-  transform: { color: 'text-emerald-400', bg: 'bg-emerald-500/10 hover:bg-emerald-500/20', border: 'border-emerald-500/40 hover:border-emerald-500/70', label: 'Transform' },
-  action: { color: 'text-amber-400', bg: 'bg-amber-500/10 hover:bg-amber-500/20', border: 'border-amber-500/40 hover:border-amber-500/70', label: 'Action' },
-};
 
 const EDGE_COLORS: Record<StageType, string> = {
   swarm: '#8b5cf6',
@@ -126,7 +120,7 @@ export function PipelineCanvas({
           + Stage
         </span>
         {ADD_TYPES.map((t) => {
-          const cfg = TYPE_CONFIG[t];
+          const cfg = STAGE_TYPE_CONFIG[t];
           return (
             <button
               key={t}

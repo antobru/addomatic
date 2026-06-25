@@ -3,7 +3,14 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(npx tsx -e ' *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Read(//Users/antonio/.claude/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('enabled:', d.get\\('enabledPlugins'\\)\\); print\\('marketplaces:', list\\(d.get\\('extraKnownMarketplaces',{}\\).keys\\(\\)\\)\\)\")",
+      "Read(//Users/antonio/.claude/plugins/**)",
+      "Read(//Users/antonio/.claude/plugins/cache/**)"
     ]
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
   }
 }

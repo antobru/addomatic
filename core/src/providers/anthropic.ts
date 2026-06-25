@@ -23,11 +23,7 @@ export class AnthropicProvider implements LLMProvider {
     this.client = new Anthropic(apiKey ? { apiKey } : {});
   }
 
-  async chat(params: LLMChatParams): Promise<LLMChatResponse> {
-    return this.callWithRetry(params);
-  }
-
-  private async callWithRetry(params: LLMChatParams, attempt = 0): Promise<LLMChatResponse> {
+  async chat(params: LLMChatParams, attempt = 0): Promise<LLMChatResponse> {
     const maxAttempts = 4;
     try {
       const tools: Anthropic.Tool[] = (params.tools ?? []).map((t) => ({
@@ -52,7 +48,7 @@ export class AnthropicProvider implements LLMProvider {
       if (retriable && attempt < maxAttempts) {
         const delay = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 250;
         await new Promise((r) => setTimeout(r, delay));
-        return this.callWithRetry(params, attempt + 1);
+        return this.chat(params, attempt + 1);
       }
       throw e;
     }

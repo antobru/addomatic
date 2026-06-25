@@ -1,36 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { SerializableStageConfig } from '../types.js';
-
-const TYPE_CONFIG: Record<
-  SerializableStageConfig['type'],
-  { label: string; indicator: string; text: string; ring: string }
-> = {
-  swarm: {
-    label: 'SWARM',
-    indicator: 'bg-violet-500',
-    text: 'text-violet-400',
-    ring: 'ring-violet-500/40',
-  },
-  agent: {
-    label: 'AGENT',
-    indicator: 'bg-sky-500',
-    text: 'text-sky-400',
-    ring: 'ring-sky-500/40',
-  },
-  transform: {
-    label: 'TRANSFORM',
-    indicator: 'bg-emerald-500',
-    text: 'text-emerald-400',
-    ring: 'ring-emerald-500/40',
-  },
-  action: {
-    label: 'ACTION',
-    indicator: 'bg-amber-500',
-    text: 'text-amber-400',
-    ring: 'ring-amber-500/40',
-  },
-};
+import { STAGE_TYPE_CONFIG } from './stage-config.js';
 
 export interface StageNodeData {
   stage: SerializableStageConfig;
@@ -40,7 +11,7 @@ export interface StageNodeData {
 
 export function StageNode({ data }: NodeProps) {
   const { stage, selected, onDelete } = data as unknown as StageNodeData;
-  const cfg = TYPE_CONFIG[stage.type];
+  const cfg = STAGE_TYPE_CONFIG[stage.type];
 
   return (
     <div

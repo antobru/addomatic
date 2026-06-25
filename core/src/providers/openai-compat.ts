@@ -58,11 +58,7 @@ interface OAIResponse {
 export class OpenAICompatibleProvider implements LLMProvider {
   constructor(private readonly options: OpenAICompatibleOptions) {}
 
-  async chat(params: LLMChatParams): Promise<LLMChatResponse> {
-    return this.callWithRetry(params);
-  }
-
-  private async callWithRetry(params: LLMChatParams, attempt = 0): Promise<LLMChatResponse> {
+  async chat(params: LLMChatParams, attempt = 0): Promise<LLMChatResponse> {
     const maxAttempts = 4;
     const url = `${this.options.baseURL.replace(/\/$/, '')}/chat/completions`;
 
@@ -100,7 +96,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (attempt < maxAttempts) {
         const delay = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 250;
         await new Promise((r) => setTimeout(r, delay));
-        return this.callWithRetry(params, attempt + 1);
+        return this.chat(params, attempt + 1);
       }
       throw e;
     }
@@ -110,7 +106,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       if (retriable && attempt < maxAttempts) {
         const delay = Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 250;
         await new Promise((r) => setTimeout(r, delay));
-        return this.callWithRetry(params, attempt + 1);
+        return this.chat(params, attempt + 1);
       }
       const text = await resp.text();
       throw new Error(`HTTP ${resp.status}: ${text}`);

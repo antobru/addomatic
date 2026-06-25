@@ -8,16 +8,7 @@ import type {
   AgentConfigSerializable,
   AggregatorConfig,
 } from '../types.js';
-
-const TYPE_CONFIG: Record<
-  SerializableStageConfig['type'],
-  { label: string; text: string; bar: string; badge: string }
-> = {
-  swarm: { label: 'SWARM', text: 'text-violet-400', bar: 'bg-violet-500', badge: 'bg-violet-500/15 text-violet-400 border-violet-500/30' },
-  agent: { label: 'AGENT', text: 'text-sky-400', bar: 'bg-sky-500', badge: 'bg-sky-500/15 text-sky-400 border-sky-500/30' },
-  transform: { label: 'TRANSFORM', text: 'text-emerald-400', bar: 'bg-emerald-500', badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
-  action: { label: 'ACTION', text: 'text-amber-400', bar: 'bg-amber-500', badge: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
-};
+import { STAGE_TYPE_CONFIG } from './stage-config.js';
 
 interface Props {
   stage: SerializableStageConfig;
@@ -237,7 +228,7 @@ function ActionPanel({ stage, onChange }: { stage: SerializableActionStage; onCh
 }
 
 export function StagePanel({ stage, onChange, onClose }: Props) {
-  const cfg = TYPE_CONFIG[stage.type];
+  const cfg = STAGE_TYPE_CONFIG[stage.type];
 
   return (
     <div className="flex flex-col h-full">

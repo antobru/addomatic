@@ -191,6 +191,8 @@ export function usePipeline() {
     [current],
   );
 
+  const clearLogs = useCallback(() => setRunLogs([]), []);
+
   return {
     summaries,
     current,
@@ -210,5 +212,6 @@ export function usePipeline() {
     reorderStages,
     setSelectedStageId,
     runPipeline,
+    clearLogs,
   };
 }

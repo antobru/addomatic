@@ -1,6 +1,7 @@
 import type { AgentTool, PipelineContext, StageConfig } from '@addomatic/core';
-import { sleep } from '../utils/sleep.js';
 import { callTool } from '../utils/call-tool.js';
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 import { parseWbsTasks, deriveProjectIdentity } from '../utils/wbs.js';
 import type { PmAiToolEvent } from '../types.js';
 

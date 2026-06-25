@@ -22,7 +22,7 @@
  */
 import {
   AnthropicProvider,
-  OllamaProvider,
+  ollamaProvider,
   Swarm,
   LLMJudgeAggregator,
   MajorityVoteAggregator,
@@ -129,7 +129,7 @@ async function scenarioCrossProvider(): Promise<void> {
   console.log('\n[Scenario 2] Swarm cross-provider: Claude + Ollama locale\n');
 
   // Verifica rapida che Ollama risponda prima di avviare il scenario.
-  const ollama = new OllamaProvider(OLLAMA_URL);
+  const ollama = ollamaProvider(OLLAMA_URL);
   try {
     await ollama.chat({
       model: OLLAMA_MODEL,

@@ -23,7 +23,7 @@ export type { ConsoleSwarmLoggerOptions } from './logger.js';
 // Provider LLM — scegli quello adatto al tuo stack
 export { AnthropicProvider } from './providers/anthropic.js';
 export { OpenAICompatibleProvider } from './providers/openai-compat.js';
-export { OllamaProvider } from './providers/ollama.js';
+export { ollamaProvider, OllamaProvider } from './providers/ollama.js';
 export type { OpenAICompatibleOptions } from './providers/openai-compat.js';
 export type {
   LLMProvider,

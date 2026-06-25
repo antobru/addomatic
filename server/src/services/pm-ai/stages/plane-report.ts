@@ -1,8 +1,10 @@
 import type { AgentTool, PipelineContext, StageConfig } from '@addomatic/core';
-import { sleep } from '../utils/sleep.js';
+import Showdown from 'showdown';
 import { callTool } from '../utils/call-tool.js';
-import { markdownToHtml } from '../utils/markdown.js';
 import type { PmAiToolEvent } from '../types.js';
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const converter = new Showdown.Converter({ tables: true, strikethrough: true, tasklists: true });
 
 export function planeReportStage(
   toolMap: Record<string, AgentTool>,
@@ -21,7 +23,7 @@ export function planeReportStage(
           throw new Error(setupData.error ?? 'project_id mancante da plane-setup');
         }
 
-        const reportHtml = markdownToHtml(ctx.stages['final-report']?.output ?? '');
+        const reportHtml = converter.makeHtml(ctx.stages['final-report']?.output ?? '');
 
         const pdfText = ctx.stages['extract-pdf']?.output ?? '';
         const pdfSection = pdfText

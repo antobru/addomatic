@@ -21,7 +21,7 @@
  */
 import {
   Pipeline,
-  OllamaProvider,
+  ollamaProvider,
   consolePipelineLogger,
   type PipelineResult,
   type PipelineContext,
@@ -45,7 +45,7 @@ if (!PDF_PATH) {
   process.exit(1);
 }
 
-const provider = new OllamaProvider(OLLAMA_URL);
+const provider = ollamaProvider(OLLAMA_URL);
 const extProvider = new OpenAICompatibleProvider({
   apiKey: process.env["OPENAI_API_KEY"] ?? "",
   baseURL: "https://api.openai.com/v1",

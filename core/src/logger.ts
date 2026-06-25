@@ -16,20 +16,7 @@
  *   new Swarm(provider, { onProgress: consoleSwarmLogger({ verbose: true }) });
  */
 import type { SwarmProgressEvent } from '../types.js';
-
-// ── ANSI ──────────────────────────────────────────────────────────────────────
-const R  = '\x1b[0m';
-const B  = '\x1b[1m';   // bold
-const D  = '\x1b[2m';   // dim
-const RED  = '\x1b[31m';
-const GREEN  = '\x1b[32m';
-const YELLOW = '\x1b[33m';
-const BLUE   = '\x1b[34m';
-const MAGENTA = '\x1b[35m';
-const CYAN  = '\x1b[36m';
-const GRAY  = '\x1b[90m';
-
-const CLR = '\r\x1b[K'; // torna a col 0 e pulisce la riga corrente
+import { R, B, D, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, GRAY, CLR, stripAnsi } from './ansi.js';
 
 const SPIN_FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
 // Un colore diverso per ogni agente — cycling
@@ -49,10 +36,6 @@ export interface ConsoleSwarmLoggerOptions {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;]*m/g, '');
-}
-
 function ts(): string {
   return `${GRAY}${new Date().toISOString().slice(11, 19)}${R}`;
 }

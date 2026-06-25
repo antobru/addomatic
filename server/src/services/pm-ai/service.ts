@@ -20,7 +20,7 @@ export class PmAiService {
   private readonly pdfSvc = new PdfExtractorService({ ocrLang: 'ita+eng', ocrThreshold: 30 });
 
   constructor(
-    private readonly llms: Record<string, LLMProvider>,
+    private readonly llms: { openai: LLMProvider },
     private readonly options?: PmAiServiceOptions,
   ) { }
 

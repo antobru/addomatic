@@ -1,6 +1,7 @@
 import { Agent, type LLMProvider, type StageConfig } from '@addomatic/core';
 import { createPullRequest } from '../utils/pr.js';
 import type { DevAiTask } from '../types.js';
+import { safeParseObj } from '../utils/parse.js';
 
 export function prCreationStage(provider: LLMProvider, task: DevAiTask): StageConfig {
   return {
@@ -132,7 +133,3 @@ function buildFallbackBody(ctx: PRBodyContext): string {
   return sections.join('\n\n---\n\n');
 }
 
-function safeParseObj(raw: string): Record<string, unknown> | null {
-  try { return JSON.parse(raw) as Record<string, unknown>; }
-  catch { return null; }
-}
